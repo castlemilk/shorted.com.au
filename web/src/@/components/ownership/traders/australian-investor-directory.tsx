@@ -33,6 +33,9 @@ import {
 import { noticeEventLabel } from "~/@/lib/ownership/events";
 import { formatIsoDate } from "~/@/lib/strategies/format";
 import { sectionTitle } from "~/@/lib/typography";
+import { InvestorThumbnail } from "./investor-thumbnail";
+import { GRAPH_PATH, graphHref } from "~/@/lib/ownership/graph-links";
+import { Network } from "lucide-react";
 import { AnnualRanks } from "./annual-ranks";
 import { FollowInvestor, useFollowedInvestors } from "./investor-follow";
 import { InvestorFilingTable } from "./investor-filing-table";
@@ -257,6 +260,16 @@ function People({
               )}
             </p>
           )}
+          <Link
+            prefetch={false}
+            href={scopedCode ? graphHref("company", scopedCode) : GRAPH_PATH}
+            className="mt-1 inline-flex min-h-8 items-center gap-1.5 text-sm text-primary underline underline-offset-4"
+          >
+            <Network aria-hidden="true" className="size-3.5" />
+            {scopedCode
+              ? "Explore " + scopedCode + " ownership graph"
+              : "Explore ownership graph"}
+          </Link>
         </div>
         <div className="grid w-full min-w-0 gap-2 sm:w-auto sm:grid-flow-col sm:items-center">
           <div className="min-w-0 sm:w-64">{search}</div>
@@ -312,9 +325,10 @@ function People({
                     <Link
                       href={investorHref(person.slug)}
                       prefetch={false}
-                      className="text-base font-semibold leading-tight underline-offset-4 hover:text-primary hover:underline"
+                      className="inline-flex min-w-0 items-center gap-2.5 text-base font-semibold leading-tight underline-offset-4 hover:text-primary hover:underline"
                     >
-                      {person.name}
+                      <InvestorThumbnail slug={person.slug} size="directory" />
+                      <span>{person.name}</span>
                     </Link>
                     {filedName &&
                       filedNameKey(filedName).replace(

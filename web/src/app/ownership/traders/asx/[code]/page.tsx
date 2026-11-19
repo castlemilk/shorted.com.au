@@ -8,6 +8,7 @@ import {
   type DirectorRecord,
 } from "~/@/components/ownership/traders/director-records";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
+import { graphHref } from "~/@/lib/ownership/graph-links";
 import { registerHref } from "~/@/lib/ownership/kinds";
 import {
   ASX_CODE,
@@ -114,6 +115,13 @@ export default async function AsxDirectorsPage({ params }: Props) {
               : `${trades.length} company record${trades.length === 1 ? "" : "s"} reviewed`}
             . Only named changes with a reported quantity are shown.
           </p>
+          <Link
+            prefetch={false}
+            href={graphHref("company", code)}
+            className="text-primary underline-offset-4 hover:underline"
+          >
+            Explore {code} ownership graph →
+          </Link>
           <Link
             prefetch={false}
             href={registerHref(code)}

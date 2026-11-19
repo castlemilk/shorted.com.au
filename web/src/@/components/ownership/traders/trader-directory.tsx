@@ -1,5 +1,6 @@
 "use client";
 
+import { InvestorThumbnail } from "./investor-thumbnail";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -48,12 +49,15 @@ export function TraderDirectory() {
                 href={traderHref(p)}
                 className="group grid grid-cols-[1fr_auto] items-center gap-3 px-1 py-4 hover:bg-muted/30 focus-visible:outline-primary"
               >
-                <span className="min-w-0">
-                  <span className="block font-serif text-xl font-semibold group-hover:text-primary">
-                    {p.name}
-                  </span>
-                  <span className="block text-sm text-muted-foreground">
-                    {p.firm}
+                <span className="flex min-w-0 items-center gap-3">
+                  <InvestorThumbnail slug={p.slug} size="graph" />
+                  <span className="min-w-0">
+                    <span className="block font-serif text-xl font-semibold group-hover:text-primary">
+                      {p.name}
+                    </span>
+                    <span className="block text-sm text-muted-foreground">
+                      {p.firm}
+                    </span>
                   </span>
                 </span>
                 <span className="flex items-center gap-2 text-xs text-muted-foreground">

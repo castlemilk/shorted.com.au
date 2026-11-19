@@ -1,3 +1,4 @@
+import { graphHref } from "~/@/lib/ownership/graph-links";
 import type { Metadata } from "next";
 import styles from "./profile.module.css";
 import Link from "next/link";
@@ -185,6 +186,15 @@ export default async function TraderPage({ params }: Props) {
               className="space-y-3 border-t pt-4"
             >
               <h2 className={eyebrow}>Reporting manager</h2>
+              {reporting.market === "ASX" && (
+                <Link
+                  prefetch={false}
+                  href={graphHref("person", person.slug)}
+                  className={link}
+                >
+                  Explore ownership graph →
+                </Link>
+              )}
               <p className="text-base font-semibold">{person.firm}</p>
               <p className="text-sm text-muted-foreground">
                 {person.firm} reports these holdings. Personal positions require

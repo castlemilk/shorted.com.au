@@ -1,6 +1,7 @@
 import { filerPath } from "~/@/lib/ownership/named-filer";
 import { investorHref, issuerInvestors } from "~/@/lib/ownership/australian-investors";
 import { ASX_CODE, directorHref, tradersForHolder, traderHref } from "~/@/lib/ownership/traders";
+import { graphHref } from "~/@/lib/ownership/graph-links";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -274,6 +275,7 @@ export default async function RegisterPage({ params }: PageProps) {
               we could read, what that notice states, and how each holding stepped from notice to notice. Index fund
               files and super fund option disclosures sit beside the notices, never added to them.
             </p>
+            <Link href={graphHref("company",code)} prefetch={false} className="inline-flex min-h-10 items-center text-sm font-medium text-primary underline underline-offset-4">Explore {code} ownership graph →</Link>
             {linkedManagers.length > 0 && <ul aria-label="People associated with disclosed holders" className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
               {linkedManagers.map((person) => <li key={person.slug}>
                 <Link href={traderHref(person)} prefetch={false} className="text-primary underline-offset-4 hover:underline">

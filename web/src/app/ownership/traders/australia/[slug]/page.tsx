@@ -1,3 +1,6 @@
+import { Network } from "lucide-react";
+import { graphHref } from "~/@/lib/ownership/graph-links";
+import { profilePictures } from "~/server/traders/portraits";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -83,6 +86,9 @@ export default async function AustralianInvestorPage({ params }: Props) {
     .map((code) => ({ code, count: issuerInvestors(code).length }))
     .filter((r) => r.count > 1);
   const accounts = publicAccounts[person.slug];
+  const hasSidebar = Boolean(
+    accounts ?? profilePictures(person.slug).some((p) => p.local),
+  );
   const record = professionalRecord(person);
   return (
     <DashboardLayout>
@@ -106,11 +112,19 @@ export default async function AustralianInvestorPage({ params }: Props) {
             { label: person.name, href: investorHref(person.slug) },
           ]}
         >
+          <Link
+            prefetch={false}
+            href={graphHref("person", person.slug)}
+            className="inline-flex min-h-10 items-center gap-1 text-sm text-primary hover:underline"
+          >
+            <Network className="size-3.5" aria-hidden="true" />
+            Ownership graph
+          </Link>
           <FollowInvestor showInbox slug={person.slug} name={person.name} />
         </InvestorProfileHeader>
         <div
           className={
-            accounts
+            hasSidebar
               ? "grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_17rem] lg:gap-8"
               : "min-w-0"
           }
@@ -377,12 +391,14 @@ export default async function AustralianInvestorPage({ params }: Props) {
               </nav>
             )}
           </div>
-          {accounts && (
+          {hasSidebar && (
             <aside className="min-w-0 space-y-5 lg:border-l lg:pl-5">
-              <TraderPublicAccounts
-                trader={person}
-                joint={!!person.jointNames}
-              />
+              {accounts && (
+                <TraderPublicAccounts
+                  trader={person}
+                  joint={!!person.jointNames}
+                />
+              )}
               <InvestorPhotoCredit slug={person.slug} />
             </aside>
           )}

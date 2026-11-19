@@ -10,6 +10,7 @@ For the Australian investor tracker, run the following from `web/` against an up
 
 ```sh
 node scripts/capture-investor-tracker.mjs http://localhost:3000 /path/to/review-screenshots
+node scripts/capture-ownership-graph.mjs http://localhost:3000 /path/to/review-screenshots
 ```
 
 Run `npm run traders:crawl -- --discover` from `web/` to review public account and portrait candidates. After checking which person, firm or show owns a link, update its editorial source and run `npm run traders:crawl -- --write` to refresh the dated access results. Only publish a local photograph when the subject, credit and reuse terms are documented. A named portrait can also link to its publisher.

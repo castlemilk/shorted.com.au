@@ -72,7 +72,9 @@ try {
             .find((data) => data["@type"] === "ProfilePage")?.mainEntity,
       );
     assert.equal(person.name, name);
-    assert(person.image.contentUrl.endsWith(await image.getAttribute("src")));
+    const imgPath = new URL(await image.evaluate((el) => el.currentSrc))
+      .pathname;
+    assert.equal(new URL(person.image.contentUrl).pathname, imgPath);
   }
   async function verifyShareCard(filename) {
     const route = new URL(page.url()).pathname;

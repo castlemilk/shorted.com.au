@@ -143,7 +143,12 @@ it("links to the named publisher portrait for a person without a licensed local 
     "href",
     "https://wilsonassetmanagement.com.au/about-us/geoff-wilson-ao/",
   );
-  expect(screen.queryByRole("img", { name: /Portrait/ })).toBeNull();
+  expect(
+    screen.getByRole("img", { name: "Portrait of Geoff Wilson" }),
+  ).toHaveAttribute(
+    "src",
+    expect.stringContaining("wilsonassetmanagement.com.au/wp-content/"),
+  );
   expect(schema.mainEntity.image).toBeUndefined();
 });
 

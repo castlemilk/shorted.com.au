@@ -1,10 +1,13 @@
 import type { ReactNode } from "react";
-import Image from "next/image";
+import { PortraitImage } from "./investor-thumbnail";
 import Link from "next/link";
 import { ArrowDown, ArrowLeft, ArrowUpRight } from "lucide-react";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { pageTitle } from "~/@/lib/typography";
-import { portraits, publisherPortraits } from "~/server/traders/portraits";
+import {
+  publisherPortraits,
+  profilePictures,
+} from "~/server/traders/portraits";
 import { publicAccounts } from "~/server/traders/public-accounts";
 import { accountPlatforms } from "./account-platforms";
 import {
@@ -29,7 +32,7 @@ export function InvestorProfileHeader({
   children?: ReactNode;
 }) {
   const parent = crumbs.at(-2)!;
-  const photo = portraits[person.slug];
+  const pictures = profilePictures(person.slug, person.name);
   const publisher = publisherPortraits[person.slug];
   const accounts = publicAccounts[person.slug];
   return (
@@ -53,38 +56,74 @@ export function InvestorProfileHeader({
       <header className="min-w-0 border-b pb-3 [container:investor-header/inline-size] sm:pb-5 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-center lg:gap-x-7">
         <div
           className={
-            photo
-              ? "grid min-w-0 flex-1 grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-x-4 sm:grid-cols-[7rem_minmax(0,1fr)] sm:grid-rows-[auto_1fr] sm:gap-x-6 [@container_investor-header_(max-width:13rem)]:grid-cols-1"
+            pictures.length
+              ? "grid min-w-0 flex-1 items-start gap-x-3 sm:grid-rows-[auto_1fr] sm:gap-x-6 [@container_investor-header_(max-width:13rem)]:grid-cols-1 " +
+                (pictures.length > 1
+                  ? "grid-cols-[7.5rem_minmax(0,1fr)] sm:grid-cols-[12rem_minmax(0,1fr)]"
+                  : "grid-cols-[4.5rem_minmax(0,1fr)] sm:grid-cols-[7rem_minmax(0,1fr)]")
               : "min-w-0 flex-1"
           }
         >
-          {photo && (
-            <figure className="w-full max-w-[4.5rem] sm:row-span-2 sm:max-w-[7rem]">
-              <a
-                href="#portrait-credit"
-                className="group block rounded-xl text-xs text-muted-foreground underline-offset-4 hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              >
-                <Image
-                  src={photo.image}
-                  alt={`Portrait of ${person.name}`}
-                  width={112}
-                  height={140}
-                  unoptimized
-                  priority
-                  className="aspect-[4/5] w-full rounded-xl border border-border object-cover"
-                />
-                <span className="mt-1 inline-block min-h-6 whitespace-nowrap group-hover:underline">
-                  <span className="hidden sm:inline">Photo credit</span>
-                  <span className="sm:hidden">Credit</span>
-                </span>
-              </a>
-            </figure>
+          {pictures.length > 0 && (
+            <div className="flex w-full gap-1 sm:row-span-2">
+              {pictures.map((picture) => (
+                <figure key={picture.image} className="min-w-0 flex-1">
+                  <a
+                    href={picture.local ? "#portrait-credit" : picture.source}
+                    aria-label={
+                      picture.local
+                        ? "Photo credit for " + picture.subject
+                        : "Publisher portrait of " +
+                          picture.subject +
+                          " at " +
+                          picture.credit
+                    }
+                    className="group block rounded-xl text-xs text-muted-foreground underline-offset-4 hover:text-primary"
+                  >
+                    <PortraitImage
+                      picture={picture}
+                      alt={"Portrait of " + picture.subject}
+                      width={112}
+                      height={140}
+                      priority
+                      className="aspect-[4/5] w-full rounded-xl border border-border object-cover object-[center_32%]"
+                    />
+                    <span className="mt-1 inline-block min-h-6 group-hover:underline">
+                      {pictures.length > 1 ? (
+                        picture.subject.split(" ")[0]
+                      ) : picture.local ? (
+                        <>
+                          <span className="hidden sm:inline">Photo credit</span>
+                          <span className="sm:hidden">Credit</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="hidden sm:inline">
+                            {picture.credit}
+                          </span>
+                          <span className="sm:hidden">Photo source</span>
+                        </>
+                      )}
+                    </span>
+                  </a>
+                </figure>
+              ))}
+            </div>
           )}
-          <div className="min-w-0">
+          <div
+            className={
+              pictures.length > 1 ? "contents min-w-0 sm:block" : "min-w-0"
+            }
+          >
             <h1 className={`${pageTitle} [overflow-wrap:anywhere] lg:text-5xl`}>
               {person.name}
             </h1>
-            <p className="mt-1 max-w-[64ch] text-balance text-sm leading-relaxed text-muted-foreground sm:text-base">
+            <p
+              className={
+                "mt-1 max-w-[64ch] text-balance text-sm leading-relaxed text-muted-foreground sm:text-base " +
+                (pictures.length > 1 ? "max-sm:col-span-full" : "")
+              }
+            >
               {record ? `${record.role} · ${record.organization}` : description}
             </p>
           </div>
@@ -114,7 +153,7 @@ export function InvestorProfileHeader({
                   Accounts <ArrowDown aria-hidden="true" className="size-3.5" />
                 </a>
               )}
-              {publisher && !photo && (
+              {publisher && !pictures.length && (
                 <a
                   href={publisher.url}
                   aria-label={`Publisher portrait of ${person.name} at ${publisher.publisher}`}
@@ -153,8 +192,10 @@ export function InvestorProfileHeader({
 }
 
 export function InvestorPhotoCredit({ slug }: { slug: string }) {
-  const photo = portraits[slug];
-  if (!photo) return null;
+  const credits = profilePictures(slug).flatMap((p) =>
+    p.local ? [p.local] : [],
+  );
+  if (!credits.length) return null;
   const link = "text-primary underline underline-offset-4";
   return (
     <footer
@@ -162,24 +203,30 @@ export function InvestorPhotoCredit({ slug }: { slug: string }) {
       tabIndex={-1}
       className="scroll-mt-32 space-y-1 border-t pt-3 text-xs leading-relaxed text-muted-foreground"
     >
-      <p className="font-medium text-foreground">Photograph · {photo.year}</p>
-      <p>
-        <a href={photo.creditUrl} className={link}>
-          {photo.credit}
-        </a>
-      </p>
-      <p>
-        <a href={photo.source} className={link}>
-          Original photograph
-        </a>
-        {" · "}
-        <span className="inline-block">
-          <a href={photo.licenseUrl} className={link}>
-            {photo.license}
-          </a>
-          {" · Cropped"}
-        </span>
-      </p>
+      {credits.map((photo) => (
+        <div key={photo.source} className="space-y-1">
+          <p className="font-medium text-foreground">
+            Photograph · {photo.year}
+          </p>
+          <p>
+            <a href={photo.creditUrl} className={link}>
+              {photo.credit}
+            </a>
+          </p>
+          <p>
+            <a href={photo.source} className={link}>
+              Original photograph
+            </a>
+            {" · "}
+            <span className="inline-block">
+              <a href={photo.licenseUrl} className={link}>
+                {photo.license}
+              </a>
+              {" · Cropped"}
+            </span>
+          </p>
+        </div>
+      ))}
     </footer>
   );
 }
