@@ -130,7 +130,7 @@ export default async function TraderPage({ params }: Props) {
           crumbs={crumbs}
           description={`${person.role} · ${person.firm}`}
         />
-        <div className="grid min-w-0 items-start gap-7 lg:grid-cols-[minmax(0,1fr)_17rem]">
+        <div className="grid min-w-0 items-start gap-7 lg:grid-cols-[minmax(0,1fr)_18rem]">
           <div className="min-w-0 lg:col-start-1 lg:row-start-1">
             {reporting.market === "US" && sec ? (
               <SecPositions cik={reporting.cik} data={sec} />
@@ -140,56 +140,61 @@ export default async function TraderPage({ params }: Props) {
               )
             )}
           </div>
-          <aside className="min-w-0 space-y-3 border-l-2 border-primary/45 pl-4 lg:col-start-2 lg:row-start-1">
-            <h2 className={eyebrow}>Reporting manager</h2>
-            <p className="text-base font-semibold">{person.firm}</p>
-            <p className="text-sm text-muted-foreground">
-              {person.firm} reports these holdings. Personal positions require a
-              separately named filing.
-            </p>
-            <ul className="space-y-2">
-              <li>
-                <a className={link} href={person.roleSource}>
-                  Person and firm source ↗
-                </a>
-              </li>
-              <li>
-                {reporting.market === "ASX" ? (
+          <aside className="min-w-0 space-y-6 lg:col-start-2 lg:row-start-1 lg:border-l lg:pl-5">
+            <TraderPublicAccounts trader={person} />
+            <section
+              aria-label="Reporting manager"
+              className="space-y-3 border-t pt-4"
+            >
+              <h2 className={eyebrow}>Reporting manager</h2>
+              <p className="text-base font-semibold">{person.firm}</p>
+              <p className="text-sm text-muted-foreground">
+                {person.firm} reports these holdings. Personal positions require
+                a separately named filing.
+              </p>
+              <ul className="space-y-2">
+                <li>
+                  <a className={link} href={person.roleSource}>
+                    Person and firm source ↗
+                  </a>
+                </li>
+                <li>
+                  {reporting.market === "ASX" ? (
+                    <Link
+                      prefetch={false}
+                      className={link}
+                      href={`/ownership/${reporting.holder}`}
+                    >
+                      Firm ownership profile →
+                    </Link>
+                  ) : (
+                    <a
+                      className={link}
+                      href={`https://www.sec.gov/edgar/browse/?CIK=${reporting.cik}`}
+                    >
+                      All SEC filings ↗
+                    </a>
+                  )}
+                </li>
+              </ul>
+              {director && (
+                <div className="space-y-2 border-t pt-3">
+                  <h3 className={eyebrow}>Director disclosures</h3>
                   <Link
                     prefetch={false}
                     className={link}
-                    href={`/ownership/${reporting.holder}`}
+                    href={directorHref(director.code, director.name)}
                   >
-                    Firm ownership profile →
+                    View {director.name} at ASX:{director.code} →
                   </Link>
-                ) : (
-                  <a
-                    className={link}
-                    href={`https://www.sec.gov/edgar/browse/?CIK=${reporting.cik}`}
-                  >
-                    All SEC filings ↗
-                  </a>
-                )}
-              </li>
-            </ul>
-            {director && (
-              <div className="space-y-2 border-t pt-3">
-                <h3 className={eyebrow}>Director disclosures</h3>
-                <Link
-                  prefetch={false}
-                  className={link}
-                  href={directorHref(director.code, director.name)}
-                >
-                  View {director.name} at ASX:{director.code} →
-                </Link>
-                <p>
-                  <a className={link} href={director.source}>
-                    Named Appendix 3Y filing ↗
-                  </a>
-                </p>
-              </div>
-            )}
-            <TraderPublicAccounts trader={person} />
+                  <p>
+                    <a className={link} href={director.source}>
+                      Named Appendix 3Y filing ↗
+                    </a>
+                  </p>
+                </div>
+              )}
+            </section>
             <InvestorPhotoCredit slug={person.slug} />
           </aside>
         </div>

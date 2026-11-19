@@ -6,9 +6,10 @@ import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { pageTitle } from "~/@/lib/typography";
 import { portraits, publisherPortraits } from "~/server/traders/portraits";
 import { publicAccounts } from "~/server/traders/public-accounts";
+import { accountPlatforms } from "./account-platforms";
 
 const actionLink =
-  "inline-flex min-h-10 items-center gap-1.5 text-sm text-primary underline-offset-4 hover:underline focus-visible:underline";
+  "inline-flex min-h-11 items-center gap-1.5 rounded-sm text-sm text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 export function InvestorProfileHeader({
   person,
@@ -43,20 +44,20 @@ export function InvestorProfileHeader({
           </Link>
         </nav>
       </div>
-      <header className="flex min-w-0 flex-wrap items-start justify-between gap-x-6 gap-y-2 border-b pb-3 sm:pb-5">
+      <header className="min-w-0 border-b pb-3 sm:pb-5">
         <div
           className={
             photo
-              ? "grid min-w-0 flex-1 grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-x-4 sm:grid-cols-[7rem_minmax(0,1fr)] sm:gap-x-6"
+              ? "grid min-w-0 flex-1 grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-x-4 sm:grid-cols-[7rem_minmax(0,1fr)] sm:grid-rows-[auto_1fr] sm:gap-x-6"
               : "min-w-0 flex-1"
           }
         >
           {photo && (
-            <figure className="row-span-2">
+            <figure className="sm:row-span-2">
               <a
                 href="#portrait-credit"
                 aria-label={`Photograph of ${person.name}, credit and source`}
-                className="group block text-xs text-muted-foreground underline-offset-4 hover:text-primary"
+                className="group block rounded-xl text-xs text-muted-foreground underline-offset-4 hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 <Image
                   src={photo.image}
@@ -65,7 +66,7 @@ export function InvestorProfileHeader({
                   height={140}
                   unoptimized
                   priority
-                  className="aspect-[4/5] w-full rounded-sm object-cover"
+                  className="aspect-[4/5] w-full rounded-xl border border-border object-cover"
                 />
                 <span className="mt-1 inline-block min-h-6 whitespace-nowrap group-hover:underline">
                   <span className="hidden sm:inline">Photo credit</span>
@@ -81,19 +82,22 @@ export function InvestorProfileHeader({
             </p>
           </div>
           {(accounts ?? publisher ?? children) && (
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 max-sm:col-span-full sm:gap-x-5">
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 max-sm:col-span-full sm:mt-3 sm:gap-x-5">
               {children}
-              {accounts?.personal.map((a) => (
-                <a
-                  key={a.url}
-                  href={a.url}
-                  aria-label={`${a.platform} for ${person.name}${a.handle ? ` · ${a.handle}` : ""}`}
-                  className={actionLink}
-                >
-                  {a.platform}
-                  <ArrowUpRight aria-hidden="true" className="size-3.5" />
-                </a>
-              ))}
+              {accounts?.personal.map((account) => {
+                const { label, Icon } = accountPlatforms[account.platform];
+                return (
+                  <a
+                    key={account.url}
+                    href={account.url}
+                    aria-label={`${label} for ${person.name}${account.handle ? ` · ${account.handle}` : ""}`}
+                    className={actionLink}
+                  >
+                    <Icon aria-hidden="true" className="size-4 shrink-0" />
+                    {label}
+                  </a>
+                );
+              })}
               {accounts && (
                 <a
                   href="#public-accounts"

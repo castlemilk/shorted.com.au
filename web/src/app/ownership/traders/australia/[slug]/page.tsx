@@ -82,7 +82,7 @@ export default async function AustralianInvestorPage({ params }: Props) {
         <div
           className={
             accounts
-              ? "grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-8"
+              ? "grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_17rem] lg:gap-8"
               : "min-w-0"
           }
         >

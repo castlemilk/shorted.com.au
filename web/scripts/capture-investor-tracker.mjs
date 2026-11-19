@@ -40,7 +40,22 @@ try {
     await image.evaluate(async (el) => {
       await el.decode();
     });
-    assert(await image.evaluate((el) => el.naturalWidth > 0));
+    assert(
+      await image.evaluate((el) => {
+        const css = getComputedStyle(el);
+        const corners = [
+          css.borderTopLeftRadius,
+          css.borderTopRightRadius,
+          css.borderBottomLeftRadius,
+          css.borderBottomRightRadius,
+        ];
+        return (
+          el.naturalWidth > 0 &&
+          corners.every((radius) => Number.parseFloat(radius) >= 8)
+        );
+      }),
+      "Portrait failed to load with four rounded corners",
+    );
     const credit = page.locator("#portrait-credit");
     assert.match(
       await credit
@@ -58,6 +73,39 @@ try {
       );
     assert.equal(person.name, name);
     assert(person.image.contentUrl.endsWith(await image.getAttribute("src")));
+  }
+  async function verifyAccountRows(accounts) {
+    const groups = accounts.getByRole("list", { name: /^Public links for / });
+    assert((await groups.count()) > 0, "Missing named account lists");
+    for (const group of await groups.all()) {
+      const rows = await group.getByRole("link").evaluateAll((links) =>
+        links.map((link) => {
+          const rect = link.getBoundingClientRect();
+          return {
+            top: rect.top,
+            bottom: rect.bottom,
+            height: rect.height,
+            right: rect.right,
+            left: rect.left,
+            fits: link.scrollWidth <= link.clientWidth + 1,
+            label: link.innerText,
+            icon: !!link.querySelector('svg[aria-hidden="true"]'),
+          };
+        }),
+      );
+      for (const [i, row] of rows.entries()) {
+        assert(
+          row.fits &&
+            row.left >= 0 &&
+            row.right <= page.viewportSize().width + 1 &&
+            row.height >= 44,
+          "Clipped account row: " + row.label,
+        );
+        assert(row.icon && row.label.trim(), "Missing account mark or name");
+        if (i)
+          assert(row.top >= rows[i - 1].bottom - 1, "Two accounts share a row");
+      }
+    }
   }
   async function shoot(filename, section) {
     await page.evaluate(async () => {
@@ -264,6 +312,7 @@ try {
       .getAttribute("href"),
     /^https:\/\/www\.sec\.gov\//,
   );
+  await verifyAccountRows(region("Public accounts"));
   await shoot("manager-profile-desktop.png");
   await page.setViewportSize(mobile);
   for (const width of [320, 360, mobile.width]) {
@@ -320,6 +369,25 @@ try {
       .getAttribute("href");
     assert.match(href, /^https:\/\/www\.linkedin\.com\//);
   }
+  for (const width of [320, 390, 768, 1024]) {
+    await page.setViewportSize({ width, height: mobile.height });
+    await verifyAccountRows(accounts);
+  }
+  await page.setViewportSize(mobile);
+  await page.getByRole("link", { name: "Accounts and sources" }).focus();
+  await page.keyboard.press("Enter");
+  assert.equal(
+    await accounts.evaluate((el) => el === document.activeElement),
+    true,
+  );
+  await accounts.blur();
+  await page.mouse.move(2, 2);
+  await shoot("social-accounts-mobile.png", accounts);
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.locator("html.dark").waitFor();
+  await shoot("social-accounts-mobile-dark.png", accounts);
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.locator("html.light").waitFor();
   await accounts.locator("summary").click();
   await accounts.getByText(/Checked/).waitFor();
   const evidence = await accounts

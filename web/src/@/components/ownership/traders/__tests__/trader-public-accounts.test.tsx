@@ -160,3 +160,41 @@ it("carries the original Australian attribution through to the public credit", (
   );
   expect(screen.getByText(/Cropped/)).toBeVisible();
 });
+
+it("lists each verified network under its owner with a visible platform name and handle", () => {
+  const { accounts } = show("geoff-wilson");
+  const personal = within(
+    accounts.getByRole("list", { name: "Public links for Geoff Wilson" }),
+  );
+  const firm = within(
+    accounts.getByRole("list", {
+      name: "Public links for Wilson Asset Management",
+    }),
+  );
+  const link = personal.getByRole("link", {
+    name: "X (Twitter) · Geoff Wilson · @GeoffWilsonWAM",
+  });
+  expect(within(link).getByText("X (Twitter)")).toBeVisible();
+  expect(within(link).getByText("@GeoffWilsonWAM")).toBeVisible();
+  expect(link).toHaveAttribute("href", "https://x.com/GeoffWilsonWAM");
+  expect(
+    firm.getByRole("link", { name: /X \(Twitter\) · Wilson Asset Management/ }),
+  ).toHaveAttribute("href", "https://x.com/WilsonAssetMgmt");
+  expect(firm.getByText("@wilsonassetmanagement3863")).toBeVisible();
+  expect(personal.queryByText("Facebook")).toBeNull();
+});
+it("shows the actual website domain on a website-only profile", () => {
+  render(
+    <TraderPublicAccounts
+      trader={{ slug: "gina-rinehart", name: "Gina Rinehart" }}
+      path="/ownership/traders/australia/gina-rinehart"
+    />,
+  );
+  const links = within(
+    screen.getByRole("list", { name: "Public links for Gina Rinehart" }),
+  ).getAllByRole("link");
+  expect(links).toHaveLength(1);
+  expect(links[0]).toHaveTextContent("Website");
+  expect(links[0]).toHaveTextContent("ginarinehart.com.au");
+  expect(links[0]).toHaveAttribute("href", "https://www.ginarinehart.com.au/");
+});

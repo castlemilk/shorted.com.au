@@ -109,6 +109,7 @@ export const publicAccounts: Readonly<
       {
         platform: "Instagram",
         url: "https://www.instagram.com/maasgroupholdings/",
+        handle: "@maasgroupholdings",
         source: maasSite,
       },
       {
@@ -202,6 +203,7 @@ export const publicAccounts: Readonly<
       {
         platform: "YouTube",
         url: "https://www.youtube.com/@wilsonassetmanagement3863",
+        handle: "@wilsonassetmanagement3863",
         source: wilsonBio,
       },
     ],

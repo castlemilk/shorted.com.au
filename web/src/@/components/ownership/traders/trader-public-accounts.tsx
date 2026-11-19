@@ -1,3 +1,5 @@
+import { ArrowUpRight } from "lucide-react";
+import { accountPlatforms } from "./account-platforms";
 import { JsonLd } from "~/@/components/seo/json-ld";
 import { traderHref, type TraderProfile } from "~/@/lib/ownership/traders";
 import { sectionTitle } from "~/@/lib/typography";
@@ -57,7 +59,10 @@ export function TraderPublicAccounts({
   for (const group of groups) {
     for (const account of group.accounts) {
       const { platform, source } = account;
-      const attribution = { label: `${group.name} · ${platform}`, account };
+      const attribution = {
+        label: `${group.name} · ${accountPlatforms[platform].label}`,
+        account,
+      };
       const existing = sources.get(source.url);
       if (existing) {
         existing.attributions.push(attribution);
@@ -76,7 +81,7 @@ export function TraderPublicAccounts({
       id="public-accounts"
       aria-labelledby="public-accounts-title"
       tabIndex={-1}
-      className="scroll-mt-32 space-y-3 border-t pt-3"
+      className="scroll-mt-32 space-y-4"
     >
       {!joint && (
         <JsonLd
@@ -118,25 +123,51 @@ export function TraderPublicAccounts({
       <h2 id="public-accounts-title" className={sectionTitle}>
         Public accounts
       </h2>
-      <dl className="space-y-3 text-sm">
+      <dl className="space-y-5 text-sm">
         {groups.map((group) => (
           <div key={group.name}>
-            <dt className="font-medium">{group.name}</dt>
+            <dt className="font-semibold leading-snug">{group.name}</dt>
             <dd className="mt-1">
               {group.accounts.length ? (
-                <ul className="flex flex-wrap items-center gap-x-4">
-                  {group.accounts.map((a) => (
-                    <li key={a.url}>
-                      <a
-                        className={`inline-flex min-h-10 items-center ${link}`}
-                        href={a.url}
-                        aria-label={`${a.platform} · ${group.name}${a.handle ? ` · ${a.handle}` : ""}`}
-                      >
-                        {a.platform}
-                        {a.handle && ` · ${a.handle}`}
-                      </a>
-                    </li>
-                  ))}
+                <ul
+                  aria-label={`Public links for ${group.name}`}
+                  className="divide-y divide-border/65"
+                >
+                  {group.accounts.map((account) => {
+                    const { label, Icon } = accountPlatforms[account.platform];
+                    const detail =
+                      account.platform === "Official website"
+                        ? new URL(account.url).hostname.replace(/^www\./, "")
+                        : account.handle;
+                    return (
+                      <li key={account.url}>
+                        <a
+                          href={account.url}
+                          aria-label={`${label} · ${group.name}${detail ? ` · ${detail}` : ""}`}
+                          className="group grid min-h-11 grid-cols-[1rem_minmax(0,1fr)_0.875rem] items-center gap-x-2.5 rounded-sm py-1.5 hover:bg-muted/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                        >
+                          <Icon
+                            aria-hidden="true"
+                            className="size-4 text-primary"
+                          />
+                          <span className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+                            <span className="font-medium text-foreground underline-offset-4 group-hover:text-primary group-hover:underline">
+                              {label}
+                            </span>
+                            {detail && (
+                              <span className="min-w-0 text-xs text-muted-foreground [overflow-wrap:anywhere]">
+                                {detail}
+                              </span>
+                            )}
+                          </span>
+                          <ArrowUpRight
+                            aria-hidden="true"
+                            className="size-3.5 text-muted-foreground group-hover:text-primary"
+                          />
+                        </a>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
                 <span className="text-muted-foreground">
