@@ -50,10 +50,16 @@ function Positions({
         </div>
       </dl>
       {sum !== snapshot.totalUsd && (
-        <p className="border-l-2 border-primary/50 pl-3 text-sm text-muted-foreground">
-          The position rows total US${number.format(sum)}, a difference of US$
-          {number.format(Math.abs(sum - snapshot.totalUsd))} from the cover.
-        </p>
+        <details className="border-l-2 border-primary/50 pl-3 text-sm text-muted-foreground">
+          <summary className="cursor-pointer py-1">
+            Cover and rows differ by US$
+            {number.format(Math.abs(sum - snapshot.totalUsd))}
+          </summary>
+          <p className="pt-1">
+            The position rows total US${number.format(sum)}. The cover reports
+            US${number.format(snapshot.totalUsd)}.
+          </p>
+        </details>
       )}
       {snapshot.confidentialOmitted && (
         <p className="text-sm text-muted-foreground">
@@ -62,31 +68,54 @@ function Positions({
       )}
       {previous && (
         <p className="text-xs text-muted-foreground">
-          Quantity changes compare the holdings reported on{" "}
-          {previous.filing.period} and {snapshot.filing.period}.
+          Quantity change since{" "}
+          <time dateTime={previous.filing.period}>
+            {previous.filing.period}
+          </time>
+          .
         </p>
       )}
-      <Table>
+      <Table
+        role="table"
+        className="max-sm:block max-sm:[&_td]:p-0 max-sm:[&_th]:h-auto max-sm:[&_th]:p-0"
+      >
         <caption className="sr-only">
           {snapshot.manager} positions reported for {snapshot.filing.period}
         </caption>
-        <TableHeader>
-          <TableRow>
-            <TableHead scope="col">Security</TableHead>
-            <TableHead scope="col" className="text-right">
+        <TableHeader role="rowgroup" className="max-sm:block">
+          <TableRow
+            role="row"
+            className="max-sm:grid max-sm:grid-cols-2 max-sm:gap-x-3 max-sm:py-2"
+          >
+            <TableHead role="columnheader" scope="col">
+              Security
+            </TableHead>
+            <TableHead
+              role="columnheader"
+              scope="col"
+              className="text-right max-sm:sr-only"
+            >
               Quantity
             </TableHead>
             {previous && (
-              <TableHead scope="col" className="text-right">
+              <TableHead
+                role="columnheader"
+                scope="col"
+                className="text-right max-sm:sr-only"
+              >
                 Change in quantity
               </TableHead>
             )}
-            <TableHead scope="col" className="text-right">
+            <TableHead
+              role="columnheader"
+              scope="col"
+              className="text-right max-sm:col-start-2"
+            >
               Value (US$)
             </TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody role="rowgroup" className="max-sm:block">
           {rows.map(({ current, previous: before }) => {
             const position = (current ?? before)!;
             const units =
@@ -102,9 +131,14 @@ function Positions({
                 : signed.format(current.quantity - before.quantity);
             return (
               <TableRow
+                role="row"
+                className="max-sm:grid max-sm:grid-cols-2 max-sm:items-baseline max-sm:gap-x-3 max-sm:gap-y-1.5 max-sm:py-3"
                 key={`${position.cusip}:${position.unit}:${position.option}`}
               >
-                <TableCell>
+                <TableCell
+                  role="cell"
+                  className="max-sm:col-start-1 max-sm:row-start-1 max-sm:[overflow-wrap:anywhere]"
+                >
                   <span className="block font-medium">{position.issuer}</span>
                   <span className="text-xs text-muted-foreground">
                     {position.securityClass}
@@ -112,20 +146,35 @@ function Positions({
                       ` · ${position.option.toLowerCase()} option`}
                   </span>
                 </TableCell>
-                <TableCell className="text-right tabular-nums">
+                <TableCell
+                  role="cell"
+                  className="text-right tabular-nums max-sm:col-start-1 max-sm:row-start-2 max-sm:text-left max-sm:text-xs max-sm:text-muted-foreground"
+                >
                   {current ? number.format(current.quantity) : "n/a"}
                   {current && (
-                    <span className="block text-xs text-muted-foreground">
+                    <span className="text-xs text-muted-foreground sm:block">
+                      {" "}
                       {units}
                     </span>
                   )}
                 </TableCell>
                 {previous && (
-                  <TableCell className="text-right text-xs tabular-nums">
+                  <TableCell
+                    role="cell"
+                    className="text-right text-xs tabular-nums max-sm:col-start-2 max-sm:row-start-2 max-sm:text-muted-foreground"
+                  >
+                    {current && before && (
+                      <span aria-hidden="true" className="sm:hidden">
+                        Change{" "}
+                      </span>
+                    )}
                     {change}
                   </TableCell>
                 )}
-                <TableCell className="text-right tabular-nums">
+                <TableCell
+                  role="cell"
+                  className="text-right tabular-nums max-sm:col-start-2 max-sm:row-start-1 max-sm:self-start max-sm:[overflow-wrap:anywhere]"
+                >
                   {current ? number.format(current.usd) : "n/a"}
                 </TableCell>
               </TableRow>
@@ -190,10 +239,18 @@ export function SecPositions({
       ? prior.snapshot
       : undefined;
   return (
-    <section className="min-w-0 space-y-5" aria-labelledby="quarterly-holdings">
+    <section
+      className="min-w-0 space-y-3 sm:space-y-5"
+      aria-labelledby="quarterly-holdings"
+    >
       <h2 id="quarterly-holdings" className={sectionTitle}>
         Quarterly holdings
       </h2>
+      {latest?.snapshot && (
+        <p className="!mt-1 text-sm text-muted-foreground">
+          Reported by {latest.snapshot.manager}.
+        </p>
+      )}
       {data.archived && (
         <p role="status" className="text-sm text-muted-foreground">
           The SEC index is unavailable. Showing saved filings with their

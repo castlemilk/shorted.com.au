@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import styles from "./profile.module.css";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
@@ -7,7 +8,10 @@ import { NoticeTable } from "~/@/components/ownership/notice-table";
 import { SubstantialHoldingsTable } from "~/@/components/ownership/ownership-tables";
 import { SecPositions } from "~/@/components/ownership/traders/sec-positions";
 import { TraderPublicAccounts } from "~/@/components/ownership/traders/trader-public-accounts";
-import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
+import {
+  InvestorPhotoCredit,
+  InvestorProfileHeader,
+} from "~/@/components/ownership/traders/investor-profile-header";
 import {
   defaultNoticeQuery,
   NOTICE_WINDOW_ALL,
@@ -20,7 +24,7 @@ import {
   TRADERS_PATH,
   traderHref,
 } from "~/@/lib/ownership/traders";
-import { eyebrow, lede, pageTitle, sectionTitle } from "~/@/lib/typography";
+import { eyebrow, sectionTitle } from "~/@/lib/typography";
 import { getInstitutionOrNotFound } from "~/app/actions/getOwnership";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { getSecHoldings } from "~/server/traders/get-sec-holdings";
@@ -70,9 +74,7 @@ async function AsxPositions({ holder }: { holder: string }) {
       <section className="space-y-3">
         <h2 className={sectionTitle}>Disclosed voting interests</h2>
         <p className="text-sm text-muted-foreground">
-          Voting power from the latest notice Shorted could read for each
-          company. Each row links to the company’s register and the source
-          notice.
+          Reported by {institution.name} in its latest notice for each company.
         </p>
         {positions.length ? (
           <SubstantialHoldingsTable
@@ -87,7 +89,7 @@ async function AsxPositions({ holder }: { holder: string }) {
           </p>
         )}
       </section>
-      <section className="space-y-3">
+      <section className={`space-y-3 ${styles.notices}`}>
         <h2 className={sectionTitle}>Recent holder notices</h2>
         <NoticeTable
           notices={notices}
@@ -99,7 +101,7 @@ async function AsxPositions({ holder }: { holder: string }) {
         <Link
           prefetch={false}
           href={`/ownership/notices?${feed.toString()}`}
-          className={link}
+          className={`block w-fit ${link}`}
         >
           Explore the firm’s notice history →
         </Link>
@@ -122,21 +124,28 @@ export default async function TraderPage({ params }: Props) {
   ];
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-6xl space-y-7">
-        <Breadcrumbs items={crumbs} prefetch={false} />
-        <header>
-          <h1 className={pageTitle}>{person.name}</h1>
-          <p className={lede}>
-            {person.role} · {person.firm}
-          </p>
-        </header>
-        <div className="grid items-start gap-7 border-t pt-6 lg:grid-cols-[minmax(0,1fr)_17rem]">
+      <div className="mx-auto min-w-0 max-w-6xl space-y-4 max-[359px]:-mx-5 sm:space-y-6">
+        <InvestorProfileHeader
+          person={person}
+          crumbs={crumbs}
+          description={`${person.role} · ${person.firm}`}
+        />
+        <div className="grid min-w-0 items-start gap-7 lg:grid-cols-[minmax(0,1fr)_17rem]">
+          <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+            {reporting.market === "US" && sec ? (
+              <SecPositions cik={reporting.cik} data={sec} />
+            ) : (
+              reporting.market === "ASX" && (
+                <AsxPositions holder={reporting.holder} />
+              )
+            )}
+          </div>
           <aside className="min-w-0 space-y-3 border-l-2 border-primary/45 pl-4 lg:col-start-2 lg:row-start-1">
             <h2 className={eyebrow}>Reporting manager</h2>
             <p className="text-base font-semibold">{person.firm}</p>
             <p className="text-sm text-muted-foreground">
-              The holdings below belong to the firm’s disclosures. Personal
-              positions require a separately named filing.
+              {person.firm} reports these holdings. Personal positions require a
+              separately named filing.
             </p>
             <ul className="space-y-2">
               <li>
@@ -181,16 +190,8 @@ export default async function TraderPage({ params }: Props) {
               </div>
             )}
             <TraderPublicAccounts trader={person} />
+            <InvestorPhotoCredit slug={person.slug} />
           </aside>
-          <div className="min-w-0 lg:col-start-1 lg:row-start-1">
-            {reporting.market === "US" && sec ? (
-              <SecPositions cik={reporting.cik} data={sec} />
-            ) : (
-              reporting.market === "ASX" && (
-                <AsxPositions holder={reporting.holder} />
-              )
-            )}
-          </div>
         </div>
       </div>
     </DashboardLayout>

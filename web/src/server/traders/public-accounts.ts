@@ -4,7 +4,14 @@ interface AccountSource {
 }
 
 export interface PublicAccount {
-  platform: "LinkedIn" | "X" | "Substack" | "YouTube" | "Official website";
+  platform:
+    | "LinkedIn"
+    | "X"
+    | "Substack"
+    | "YouTube"
+    | "Instagram"
+    | "Facebook"
+    | "Official website";
   url: string;
   handle?: string;
   source: AccountSource;
@@ -29,6 +36,18 @@ const bg2: AccountSource = {
 const wilsonPost: AccountSource = {
   title: "Wilson Asset Management’s post naming its chairman",
   url: "https://www.linkedin.com/posts/wilson-asset-management_chairman-and-chief-investment-officer-geoff-activity-7458021690225188864-A0Y5",
+};
+const wilsonBio: AccountSource = {
+  title: "Geoff Wilson’s firm biography",
+  url: "https://wilsonassetmanagement.com.au/about-us/geoff-wilson-ao/",
+};
+const wiseTechBoard: AccountSource = {
+  title: "WiseTech Global board page",
+  url: "https://www.wisetechglobal.com/investors/our-board-of-directors/",
+};
+const maasSite: AccountSource = {
+  title: "Maas Group Holdings website",
+  url: "https://www.maasgroup.com.au/",
 };
 
 // These are curated attributions. A name match or a share button does not
@@ -57,19 +76,23 @@ export const publicAccounts: Readonly<
       {
         platform: "LinkedIn",
         url: "https://www.linkedin.com/company/13728/",
-        source: {
-          title: "WiseTech Global board page",
-          url: "https://www.wisetechglobal.com/investors/our-board-of-directors/",
-        },
+        source: wiseTechBoard,
       },
       {
         platform: "X",
         url: "https://x.com/WiseTechGlobal",
         handle: "@WiseTechGlobal",
-        source: {
-          title: "WiseTech Global board page",
-          url: "https://www.wisetechglobal.com/investors/our-board-of-directors/",
-        },
+        source: wiseTechBoard,
+      },
+      {
+        platform: "Facebook",
+        url: "https://www.facebook.com/WiseTechGlobal",
+        source: wiseTechBoard,
+      },
+      {
+        platform: "YouTube",
+        url: "https://www.youtube.com/channel/UCv78Idk92_k0VdFi7oZueyw",
+        source: wiseTechBoard,
       },
     ],
   },
@@ -81,10 +104,17 @@ export const publicAccounts: Readonly<
       {
         platform: "LinkedIn",
         url: "https://www.linkedin.com/company/maas-group-pty-limited/",
-        source: {
-          title: "Maas Group Holdings website",
-          url: "https://www.maasgroup.com.au/",
-        },
+        source: maasSite,
+      },
+      {
+        platform: "Instagram",
+        url: "https://www.instagram.com/maasgroupholdings/",
+        source: maasSite,
+      },
+      {
+        platform: "Facebook",
+        url: "https://www.facebook.com/maasgroupholdings",
+        source: maasSite,
       },
     ],
   },
@@ -128,6 +158,12 @@ export const publicAccounts: Readonly<
           handle: "@bg2pod",
           source: bg2,
         },
+        {
+          platform: "Instagram",
+          url: "https://www.instagram.com/bg2pod/",
+          handle: "@bg2pod",
+          source: bg2,
+        },
       ],
     },
   },
@@ -143,17 +179,30 @@ export const publicAccounts: Readonly<
         platform: "X",
         url: "https://x.com/GeoffWilsonWAM",
         handle: "@GeoffWilsonWAM",
-        source: {
-          title: "Geoff Wilson’s firm biography",
-          url: "https://wilsonassetmanagement.com.au/about-us/geoff-wilson-ao/",
-        },
+        source: wilsonBio,
       },
     ],
     firm: [
       {
         platform: "LinkedIn",
         url: "https://www.linkedin.com/company/wilson-asset-management/",
-        source: wilsonPost,
+        source: wilsonBio,
+      },
+      {
+        platform: "X",
+        url: "https://x.com/WilsonAssetMgmt",
+        handle: "@WilsonAssetMgmt",
+        source: wilsonBio,
+      },
+      {
+        platform: "Facebook",
+        url: "https://www.facebook.com/WilsonAssetMgmt",
+        source: wilsonBio,
+      },
+      {
+        platform: "YouTube",
+        url: "https://www.youtube.com/@wilsonassetmanagement3863",
+        source: wilsonBio,
       },
     ],
   },

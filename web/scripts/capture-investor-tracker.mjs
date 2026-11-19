@@ -24,6 +24,7 @@ try {
     timezoneId: "Australia/Melbourne",
   });
   page.setDefaultTimeout(30_000);
+  page.setDefaultNavigationTimeout(90_000);
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   const button = (name) => page.getByRole("button", { name, exact: true });
@@ -33,6 +34,30 @@ try {
       waitUntil: "domcontentloaded",
     });
     assert.equal(response?.status(), 200, route);
+  }
+  async function verifyPortrait(name) {
+    const image = page.getByRole("img", { name: "Portrait of " + name });
+    await image.evaluate(async (el) => {
+      await el.decode();
+    });
+    assert(await image.evaluate((el) => el.naturalWidth > 0));
+    const credit = page.locator("#portrait-credit");
+    assert.match(
+      await credit
+        .getByRole("link", { name: "Original photograph" })
+        .getAttribute("href"),
+      /^https:\/\/commons\.wikimedia\.org\/wiki\/File:/,
+    );
+    const person = await page
+      .locator('script[type="application/ld+json"]')
+      .evaluateAll(
+        (scripts) =>
+          scripts
+            .map((el) => JSON.parse(el.textContent))
+            .find((data) => data["@type"] === "ProfilePage")?.mainEntity,
+      );
+    assert.equal(person.name, name);
+    assert(person.image.contentUrl.endsWith(await image.getAttribute("src")));
   }
   async function shoot(filename, section) {
     await page.evaluate(async () => {
@@ -192,9 +217,102 @@ try {
     .getByRole("link", { name: /Form 60/ })
     .first()
     .waitFor();
+  await verifyPortrait("Gina Rinehart");
+  const follow = button("Follow Gina Rinehart");
+  if ((await follow.getAttribute("aria-pressed")) === "true")
+    await follow.click();
   await shoot("investor-profile-desktop.png");
   await page.setViewportSize(mobile);
+  await shoot("investor-profile-mobile.png");
+  const firstNotice = interests
+    .getByRole("link", { name: "Notice", exact: true })
+    .first();
+  const firstBox = await firstNotice.boundingBox();
+  assert(
+    firstBox && firstBox.y + firstBox.height <= mobile.height,
+    "First ASX notice below phone viewport",
+  );
+  await page
+    .getByRole("link", { name: "Accounts and sources", exact: true })
+    .click();
+  assert.equal(new URL(page.url()).hash, "#public-accounts");
+  await page.locator("#public-accounts summary").focus();
+  await page.keyboard.press("Enter");
+  assert(
+    await page.locator("#public-accounts details").evaluate((el) => el.open),
+  );
+  await page.setViewportSize(desktop);
+  await go("/ownership/traders");
+  await page
+    .getByRole("link", { name: /Brad Gerstner/ })
+    .first()
+    .click();
+  await verifyPortrait("Brad Gerstner");
+  const positions = page
+    .getByRole("table", { name: /Altimeter .*positions reported/i })
+    .first();
+  await positions.waitFor();
+  console.log(
+    await positions.locator("caption").innerText(),
+    await positions.locator("tbody tr").count(),
+    "position rows",
+  );
+  assert.match(
+    await page
+      .getByRole("link", { name: /13F-HR filed/ })
+      .first()
+      .getAttribute("href"),
+    /^https:\/\/www\.sec\.gov\//,
+  );
+  await shoot("manager-profile-desktop.png");
+  await page.setViewportSize(mobile);
+  for (const width of [320, 360, mobile.width]) {
+    await page.setViewportSize({ width, height: mobile.height });
+    const cells = positions.locator("tbody tr").first().getByRole("cell");
+    const count = await cells.count();
+    assert(count >= 3, "Expected security, quantity and value");
+    for (const cell of await cells.all()) {
+      const box = await cell.boundingBox();
+      assert(
+        box && box.x >= 0 && box.x + box.width <= width,
+        "US holding cell clipped at " + width,
+      );
+    }
+  }
+  await page.setViewportSize(mobile);
+  await shoot("manager-profile-mobile.png");
+  const firstValue = await positions
+    .locator("tbody tr")
+    .first()
+    .getByRole("cell")
+    .last()
+    .boundingBox();
+  assert(
+    firstValue && firstValue.y + firstValue.height <= mobile.height,
+    "First US position value below phone viewport",
+  );
+  await go(hub + "/wesley-and-emma-maas");
+  await page.getByRole("heading", { name: "Wesley and Emma Maas" }).waitFor();
+  assert.equal(
+    await page.getByRole("img", { name: /^Portrait of/ }).count(),
+    0,
+  );
+  await page.setViewportSize(mobile);
   await go("/ownership/traders/geoff-wilson");
+  await page
+    .getByRole("link", {
+      name: "Portrait of Geoff Wilson at Wilson Asset Management",
+    })
+    .waitFor();
+  await page
+    .getByRole("table", { name: /Voting interests attributed/ })
+    .getByRole("link", { name: /notice on ASX/ })
+    .first()
+    .waitFor();
+  await shoot("geoff-wilson-mobile.png");
+  await page.setViewportSize(desktop);
+  await shoot("geoff-wilson-desktop.png");
+  await page.setViewportSize(mobile);
   const accounts = region("Public accounts");
   for (const owner of ["Geoff Wilson", "Wilson Asset Management"]) {
     const href = await accounts
@@ -211,7 +329,7 @@ try {
   const stakes = page.getByRole("table", {
     name: /Voting interests attributed/,
   });
-  for (const width of [360, mobile.width]) {
+  for (const width of [320, 360, mobile.width]) {
     await page.setViewportSize({ width, height: mobile.height });
     const source = await stakes
       .getByRole("link", { name: /notice on ASX/ })
@@ -225,6 +343,30 @@ try {
         source.x >= 0 &&
         source.x + source.width <= Math.min(width, frame) + 1,
       "Manager holding source is clipped at " + width,
+    );
+  }
+  const recentNotice = page.getByRole("table", {
+    name: /ASX notices associated/,
+  });
+  const original = recentNotice
+    .getByRole("link", { name: /Notice for .+ on ASX/ })
+    .first();
+  const originalBox = await original.boundingBox();
+  assert(
+    originalBox && originalBox.x + originalBox.width <= mobile.width,
+    "ASX release document outside the phone",
+  );
+  const showNotices = page.getByRole("button", {
+    name: /^Show (all|the latest).*notices/,
+  });
+  if (await showNotices.count()) {
+    const show = await showNotices.boundingBox();
+    const history = await page
+      .getByRole("link", { name: /Explore the firm’s notice history/ })
+      .boundingBox();
+    assert(
+      show && history && history.y >= show.y + show.height,
+      "History link overlaps notice expansion",
     );
   }
   await shoot("trader-account-sources-mobile.png", accounts);
