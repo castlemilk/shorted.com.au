@@ -41,6 +41,7 @@ export function currentFilerRow(
   const r = reviewedFor(h);
   return {
     name: h.holderName,
+    form: h.form,
     pct: r?.pct ?? h.votingPowerPct,
     date: h.announcedOn,
     votes: r

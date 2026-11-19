@@ -76,7 +76,12 @@ it("follows and removes a reviewed investor across mounts", async () => {
   await screen.findByText(/1 of 1 issuer register loaded/);
   expect(screen.getByRole("link", { name: "Gerry Harvey" })).toBeVisible();
   expect(screen.queryByRole("link", { name: "Richard White" })).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Follow Gerry Harvey" }));
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Following Gerry Harvey",
+      pressed: true,
+    }),
+  );
   expect(screen.getByText(/No followed profiles/)).toBeVisible();
 });
 

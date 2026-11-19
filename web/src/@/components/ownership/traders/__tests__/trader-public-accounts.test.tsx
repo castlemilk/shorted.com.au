@@ -42,7 +42,7 @@ it("attributes a manager, a reporting firm and a co-hosted show to separate iden
   });
   expect(
     accounts.getByRole("link", {
-      name: /YouTube · Co-hosted · BG2 Pod with Bill Gurley/,
+      name: /YouTube @Bg2Pod · Co-hosted · BG2 Pod with Bill Gurley/,
     }),
   ).toHaveAttribute("href", "https://www.youtube.com/@Bg2Pod");
   expect(accounts.getByText("Account sources")).toBeInTheDocument();
@@ -97,7 +97,9 @@ it("publishes the named portrait with its credit, original and reuse terms", () 
     isBasedOn: expect.stringContaining("Brad_Gerstner_at_the_White_House"),
   });
   expect(
-    accounts.getByRole("link", { name: /Instagram · Co-hosted · BG2/ }),
+    accounts.getByRole("link", {
+      name: /Instagram @bg2pod · Co-hosted · BG2/i,
+    }),
   ).toHaveAttribute("href", "https://www.instagram.com/bg2pod/");
   expect(schema.mainEntity.sameAs).not.toContain(
     "https://www.instagram.com/bg2pod/",
@@ -119,7 +121,7 @@ it("links to the named publisher portrait for a person without a licensed local 
   );
   expect(
     screen.getByRole("link", {
-      name: "Portrait of Geoff Wilson at Wilson Asset Management",
+      name: "Publisher portrait of Geoff Wilson at Wilson Asset Management",
     }),
   ).toHaveAttribute(
     "href",
@@ -142,9 +144,11 @@ it("keeps joint filers separate from organisations and their portraits", () => {
     container.querySelector('script[type="application/ld+json"]'),
   ).toBeNull();
   expect(
-    screen.getByRole("link", { name: /Instagram · Maas Group/ }),
+    screen.getByRole("link", {
+      name: /Instagram @maasgroupholdings · Maas Group/,
+    }),
   ).toBeVisible();
-  expect(screen.queryByRole("link", { name: /Instagram · Wesley/ })).toBeNull();
+  expect(screen.queryByRole("link", { name: /Instagram .*Wesley/ })).toBeNull();
 });
 
 it("carries the original Australian attribution through to the public credit", () => {
@@ -172,13 +176,15 @@ it("lists each verified network under its owner with a visible platform name and
     }),
   );
   const link = personal.getByRole("link", {
-    name: "X (Twitter) · Geoff Wilson · @GeoffWilsonWAM",
+    name: "X (Twitter) @GeoffWilsonWAM · Geoff Wilson",
   });
   expect(within(link).getByText("X (Twitter)")).toBeVisible();
   expect(within(link).getByText("@GeoffWilsonWAM")).toBeVisible();
   expect(link).toHaveAttribute("href", "https://x.com/GeoffWilsonWAM");
   expect(
-    firm.getByRole("link", { name: /X \(Twitter\) · Wilson Asset Management/ }),
+    firm.getByRole("link", {
+      name: "X (Twitter) @WilsonAssetMgmt · Wilson Asset Management",
+    }),
   ).toHaveAttribute("href", "https://x.com/WilsonAssetMgmt");
   expect(firm.getByText("@wilsonassetmanagement3863")).toBeVisible();
   expect(personal.queryByText("Facebook")).toBeNull();

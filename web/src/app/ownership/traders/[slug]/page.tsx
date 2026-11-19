@@ -25,6 +25,7 @@ import {
   traderHref,
 } from "~/@/lib/ownership/traders";
 import { eyebrow, sectionTitle } from "~/@/lib/typography";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { getInstitutionOrNotFound } from "~/app/actions/getOwnership";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { getSecHoldings } from "~/server/traders/get-sec-holdings";
@@ -37,7 +38,7 @@ export function generateStaticParams(): Array<{ slug: string }> {
 
 type Props = { params: Promise<{ slug: string }> };
 const link =
-  "text-sm text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary";
+  "text-sm text-primary underline underline-offset-4 hover:decoration-2";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
@@ -63,6 +64,8 @@ async function AsxPositions({ holder }: { holder: string }) {
   if (!answer?.institution)
     throw new Error(`Ownership disclosures are unavailable for ${holder}`);
   const { institution, positions, notices } = answer;
+  const latest = notices[0];
+  const latestSource = safeExternalHref(latest?.announcementUrl);
   const feed = serialiseNoticeParams({
     ...defaultNoticeQuery(),
     institutionSlug: holder,
@@ -74,8 +77,17 @@ async function AsxPositions({ holder }: { holder: string }) {
       <section className="space-y-3">
         <h2 className={sectionTitle}>Disclosed voting interests</h2>
         <p className="text-sm text-muted-foreground">
-          Reported by {institution.name} in its latest notice for each company.
+          Reported by {institution.name}, largest voting interest first.
         </p>
+        {latest && (
+          <a
+            className={`inline-flex min-h-10 items-center gap-x-1 ${link}`}
+            href={latestSource ?? "#recent-holder-notices"}
+          >
+            Latest notice · {latest.stockCode} ·{" "}
+            <time dateTime={latest.announcedOn}>{latest.announcedOn}</time>
+          </a>
+        )}
         {positions.length ? (
           <SubstantialHoldingsTable
             rows={positions.map(holdingRow)}
@@ -89,7 +101,11 @@ async function AsxPositions({ holder }: { holder: string }) {
           </p>
         )}
       </section>
-      <section className={`space-y-3 ${styles.notices}`}>
+      <section
+        id="recent-holder-notices"
+        tabIndex={-1}
+        className={`scroll-mt-32 space-y-3 ${styles.notices}`}
+      >
         <h2 className={sectionTitle}>Recent holder notices</h2>
         <NoticeTable
           notices={notices}
@@ -131,7 +147,13 @@ export default async function TraderPage({ params }: Props) {
           description={`${person.role} · ${person.firm}`}
         />
         <div className="grid min-w-0 items-start gap-7 lg:grid-cols-[minmax(0,1fr)_18rem]">
-          <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+          <div
+            id="investor-filings"
+            tabIndex={-1}
+            role="region"
+            aria-label="Investor filings"
+            className="min-w-0 scroll-mt-32 lg:col-start-1 lg:row-start-1"
+          >
             {reporting.market === "US" && sec ? (
               <SecPositions cik={reporting.cik} data={sec} />
             ) : (

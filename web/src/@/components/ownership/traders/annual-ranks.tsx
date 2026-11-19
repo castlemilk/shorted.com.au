@@ -48,7 +48,7 @@ export function AnnualRanks({
               <Link
                 prefetch={false}
                 href={registerHref(row.code)}
-                className="text-primary underline-offset-4 hover:underline"
+                className="text-primary underline underline-offset-4 hover:decoration-2"
               >
                 {row.code}
               </Link>{" "}
@@ -107,7 +107,8 @@ export function AnnualRanks({
               </span>
               <a
                 href={row.source}
-                className="text-primary underline-offset-4 hover:underline md:mt-1 md:block"
+                aria-label={`Annual report · p. ${row.page}, ${row.code} shareholder register dated ${row.date}`}
+                className="inline-flex min-h-10 items-center text-primary underline underline-offset-4 hover:decoration-2 md:flex"
               >
                 Annual report · p. {row.page}
               </a>

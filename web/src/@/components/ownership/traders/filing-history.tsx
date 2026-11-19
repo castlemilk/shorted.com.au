@@ -23,7 +23,11 @@ export function FilingHistory({ rows }: { rows: DisclosureRow[] }) {
             <div className="col-span-2 sm:col-span-1">
               <time dateTime={r.date}>{r.date}</time> · {r.code} ·{" "}
               {r.source ? (
-                <a href={r.source} className="text-primary hover:underline">
+                <a
+                  href={r.source}
+                  aria-label={`Form ${r.form} · ${r.code}, filed ${r.date}`}
+                  className="inline-flex min-h-6 items-center text-primary underline underline-offset-4 hover:decoration-2"
+                >
                   Form {r.form}
                 </a>
               ) : (

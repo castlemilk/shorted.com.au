@@ -183,7 +183,7 @@ try {
     await button("Follow " + name).click();
     await page
       .getByRole("button", {
-        name: "Follow " + name,
+        name: "Following " + name,
         exact: true,
         pressed: true,
       })
@@ -257,6 +257,28 @@ try {
   await shoot("annual-register-mobile.png", region("Annual shareholder ranks"));
   await page.setViewportSize(desktop);
   await shoot("annual-register-desktop.png");
+  await page.setViewportSize(mobile);
+  await ranks
+    .getByRole("link", { name: /Christopher Herbert Brown/i })
+    .first()
+    .click();
+  await page
+    .getByRole("heading", { level: 1, name: /Christopher Herbert Brown/i })
+    .waitFor();
+  const annualReport = page
+    .getByRole("table", { name: /Registered accounts/ })
+    .getByRole("link", { name: /Annual report/ })
+    .first();
+  await annualReport.waitFor();
+  const annualBox = await annualReport.boundingBox();
+  assert(
+    annualBox &&
+      annualBox.height >= 40 &&
+      annualBox.y + annualBox.height <= mobile.height,
+    "First annual filing and its page citation must fit on the phone",
+  );
+  await shoot("annual-investor-mobile.png");
+  await page.setViewportSize(desktop);
   await go(hub + "/gina-rinehart");
   const interests = region("Disclosed voting interests");
   await interests.getByRole("link", { name: /WCN · / }).waitFor();
@@ -266,14 +288,13 @@ try {
     .first()
     .waitFor();
   await verifyPortrait("Gina Rinehart");
-  const follow = button("Follow Gina Rinehart");
-  if ((await follow.getAttribute("aria-pressed")) === "true")
-    await follow.click();
+  const following = button("Following Gina Rinehart");
+  if (await following.count()) await following.click();
   await shoot("investor-profile-desktop.png");
   await page.setViewportSize(mobile);
   await shoot("investor-profile-mobile.png");
   const firstNotice = interests
-    .getByRole("link", { name: "Notice", exact: true })
+    .getByRole("link", { name: /^Form .*WCN filing/ })
     .first();
   const firstBox = await firstNotice.boundingBox();
   assert(
@@ -300,6 +321,25 @@ try {
     .getByRole("table", { name: /Altimeter .*positions reported/i })
     .first();
   await positions.waitFor();
+  if ((await positions.locator("caption").innerText()).includes("2026-09-30")) {
+    const cerebras = positions
+      .getByRole("row")
+      .filter({ hasText: "CEREBRAS SYSTEMS INC" });
+    assert.equal(await cerebras.count(), 1);
+    assert.match(await cerebras.innerText(), /-1,271,533/);
+    assert.equal(await positions.locator("tbody tr").count(), 17);
+    const priorOnly = page
+      .locator("summary")
+      .filter({ hasText: "Only in the previous filing (6)" });
+    await priorOnly.focus();
+    await page.keyboard.press("Enter");
+    const oldRows = page.getByRole("table", {
+      name: /Positions reported only in the previous filing/,
+    });
+    assert.equal(await oldRows.locator("tbody tr").count(), 6);
+    await page.keyboard.press("Enter");
+    await priorOnly.blur();
+  }
   console.log(
     await positions.locator("caption").innerText(),
     await positions.locator("tbody tr").count(),
@@ -314,6 +354,7 @@ try {
   );
   await verifyAccountRows(region("Public accounts"));
   await shoot("manager-profile-desktop.png");
+  await shoot("quarter-comparison-desktop.png", region("Quarterly holdings"));
   await page.setViewportSize(mobile);
   for (const width of [320, 360, mobile.width]) {
     await page.setViewportSize({ width, height: mobile.height });
@@ -340,6 +381,25 @@ try {
     firstValue && firstValue.y + firstValue.height <= mobile.height,
     "First US position value below phone viewport",
   );
+  await go("/ownership/traders");
+  await page
+    .getByRole("link", { name: /Michael Burry/ })
+    .first()
+    .click();
+  const scion = page
+    .getByRole("table", { name: /Scion .*positions reported/i })
+    .first();
+  await scion.waitFor();
+  if ((await scion.locator("caption").innerText()).includes("2025-09-30")) {
+    const palantir = scion
+      .getByRole("row")
+      .filter({ hasText: "PALANTIR TECHNOLOGIES INC" });
+    assert.match(
+      await palantir.getByRole("cell").last().innerText(),
+      /912,100,000\s+Underlying share value/,
+    );
+  }
+  await shoot("scion-holdings-mobile.png");
   await go(hub + "/wesley-and-emma-maas");
   await page.getByRole("heading", { name: "Wesley and Emma Maas" }).waitFor();
   assert.equal(
@@ -350,7 +410,7 @@ try {
   await go("/ownership/traders/geoff-wilson");
   await page
     .getByRole("link", {
-      name: "Portrait of Geoff Wilson at Wilson Asset Management",
+      name: "Publisher portrait of Geoff Wilson at Wilson Asset Management",
     })
     .waitFor();
   await page
@@ -416,14 +476,25 @@ try {
   const recentNotice = page.getByRole("table", {
     name: /ASX notices associated/,
   });
-  const original = recentNotice
-    .getByRole("link", { name: /Notice for .+ on ASX/ })
-    .first();
-  const originalBox = await original.boundingBox();
-  assert(
-    originalBox && originalBox.x + originalBox.width <= mobile.width,
-    "ASX release document outside the phone",
-  );
+  for (const width of [320, 390, 640, 768, 1024, 1280]) {
+    await page.setViewportSize({ width, height: mobile.height });
+    const frame = await recentNotice.evaluate(
+      (el) => el.parentElement.getBoundingClientRect().right,
+    );
+    for (const source of await recentNotice
+      .getByRole("link", { name: /Notice for .+ on ASX/ })
+      .all()) {
+      const doc = await source.boundingBox();
+      assert(
+        doc && doc.x + doc.width <= Math.min(frame, width) + 1,
+        "ASX source clipped at " + width,
+      );
+    }
+    if (width === 1024) {
+      await shoot("manager-notices-tablet.png", page.locator("#recent-holder-notices"));
+    }
+  }
+  await page.setViewportSize(mobile);
   const showNotices = page.getByRole("button", {
     name: /^Show (all|the latest).*notices/,
   });

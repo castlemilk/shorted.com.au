@@ -142,6 +142,20 @@ describe("13F lookup", () => {
 });
 
 describe("quarterly comparisons", () => {
+  it("matches Altimeter's Cerebras shares across differently cased filed identifiers", () => {
+    const rows = comparePositions(latest!, prior!);
+    const cerebras = rows.filter(
+      ({ current, previous }) =>
+        (current ?? previous)?.cusip.toUpperCase() === "15675D103",
+    );
+    expect(cerebras).toHaveLength(1);
+    expect(cerebras[0]).toMatchObject({
+      current: { cusip: "15675D103", quantity: 5_953_504 },
+      previous: { cusip: "15675d103", quantity: 7_225_037 },
+    });
+    expect(rows.filter(({ current }) => !current)).toHaveLength(6);
+  });
+
   it("matches a class across quarters and keeps shares, principal and options separate", () => {
     const sample = latest!.positions[0]!;
     const compared = comparePositions(

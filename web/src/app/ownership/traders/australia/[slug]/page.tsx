@@ -44,7 +44,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-const link = "text-primary underline-offset-4 hover:underline";
+const link =
+  "text-primary underline underline-offset-4 hover:decoration-2";
 
 export default async function AustralianInvestorPage({ params }: Props) {
   const person = investorBySlug((await params).slug);
@@ -55,6 +56,9 @@ export default async function AustralianInvestorPage({ params }: Props) {
     ),
   );
   if (registers.some((r) => !r.asOf)) await bailOnEmptyRender();
+  registers.sort((a, b) =>
+    (b.current?.date ?? "").localeCompare(a.current?.date ?? ""),
+  );
   const history = registers
     .flatMap((r) => r.history)
     .sort(
@@ -63,10 +67,15 @@ export default async function AustralianInvestorPage({ params }: Props) {
         (b.source ?? "").localeCompare(a.source ?? ""),
     );
   const ranks = ranksForInvestor(person.slug);
+  const annualOnly =
+    ranks.length > 0 &&
+    registers.every(
+      (r) => r.filing.basis === "annual" && !r.current && !r.history.length,
+    );
   const accounts = publicAccounts[person.slug];
   return (
     <DashboardLayout>
-      <div className="mx-auto min-w-0 max-w-6xl space-y-5 sm:space-y-6">
+      <div className="mx-auto min-w-0 max-w-6xl space-y-5 max-[359px]:-mx-5 sm:space-y-6">
         <InvestorProfileHeader
           person={person}
           description={person.description}
@@ -86,8 +95,14 @@ export default async function AustralianInvestorPage({ params }: Props) {
               : "min-w-0"
           }
         >
-          <div className="min-w-0 space-y-6">
-            {registers.length > 0 && (
+          <div
+            id="investor-filings"
+            tabIndex={-1}
+            role="region"
+            aria-label="Investor filings"
+            className="min-w-0 scroll-mt-32 space-y-6"
+          >
+            {registers.length > 0 && !annualOnly && (
               <section
                 aria-label="Disclosed voting interests"
                 className="space-y-3"
@@ -123,11 +138,16 @@ export default async function AustralianInvestorPage({ params }: Props) {
                         <p className="my-0.5 break-words text-xs text-muted-foreground">
                           {current?.name ?? filing.filedName}
                         </p>
-                        <a href={filing.source} className={`text-xs ${link}`}>
-                          {filing.basis === "annual"
-                            ? "Annual register naming this shareholder"
-                            : "Filing establishing this link"}
-                        </a>
+                        {filing.source !== current?.source && (
+                          <a
+                            href={filing.source}
+                            className={`inline-flex min-h-6 items-center text-xs ${link}`}
+                          >
+                            {filing.basis === "annual"
+                              ? "Annual register naming this shareholder"
+                              : "Filing establishing this link"}
+                          </a>
+                        )}
                       </div>
                       <div
                         className={
@@ -138,7 +158,7 @@ export default async function AustralianInvestorPage({ params }: Props) {
                       >
                         {current ? (
                           <>
-                            <span className="block text-xs text-muted-foreground md:hidden">
+                            <span className="block text-xs text-muted-foreground md:sr-only">
                               Reported voting power
                             </span>
                             <p className="text-xl font-semibold leading-tight tabular-nums">
@@ -159,26 +179,32 @@ export default async function AustralianInvestorPage({ params }: Props) {
                         )}
                       </div>
                       <div className="text-xs md:border-l md:pl-4">
-                        {current && (
-                          <p>
-                            Filed{" "}
-                            <time
-                              dateTime={current.date}
-                              className="whitespace-nowrap"
+                        {current &&
+                          (current.source ? (
+                            <a
+                              className={`inline-flex min-h-10 flex-wrap items-center gap-x-1 ${link}`}
+                              href={current.source}
+                              aria-label={`${current.form ? "Form " + current.form : "ASX notice"} · ${current.date}, ${filing.code} filing`}
                             >
-                              {current.date}
-                            </time>
-                            {current.source && (
-                              <>
-                                {" "}
-                                ·{" "}
-                                <a className={link} href={current.source}>
-                                  Notice
-                                </a>
-                              </>
-                            )}
-                          </p>
-                        )}
+                              {current.form
+                                ? `Form ${current.form}`
+                                : "ASX notice"}{" "}
+                              ·{" "}
+                              <time
+                                dateTime={current.date}
+                                className="whitespace-nowrap"
+                              >
+                                {current.date}
+                              </time>
+                            </a>
+                          ) : (
+                            <p>
+                              Filed{" "}
+                              <time dateTime={current.date}>
+                                {current.date}
+                              </time>
+                            </p>
+                          ))}
                         {asOf && (
                           <p className="mt-1 text-muted-foreground">
                             Register read to{" "}
@@ -204,9 +230,40 @@ export default async function AustralianInvestorPage({ params }: Props) {
                   entry retains its printed rank in the issuer’s top 20.
                 </p>
                 <AnnualRanks rows={ranks} />
+                {annualOnly && (
+                  <ul className="space-y-1 text-xs leading-relaxed text-muted-foreground">
+                    {registers.map(({ filing, asOf, historyLimited }) => (
+                      <li key={filing.code}>
+                        <Link
+                          href={registerHref(filing.code)}
+                          className={link}
+                          prefetch={false}
+                        >
+                          {filing.code} notice register
+                        </Link>
+                        {" · "}
+                        {asOf ? (
+                          <>
+                            No matching notice in{" "}
+                            {historyLimited
+                              ? "the latest 100 releases"
+                              : "the records"}{" "}
+                            through{" "}
+                            <time dateTime={asOf} className="whitespace-nowrap">
+                              {asOf}
+                            </time>
+                            .
+                          </>
+                        ) : (
+                          "Register temporarily unavailable."
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </section>
             )}
-            {registers.length > 0 && (
+            {registers.length > 0 && !annualOnly && (
               <section aria-label="Filing history" className="space-y-3">
                 <h2 className={sectionTitle}>Filing history</h2>
                 {history.length > 0 ? (

@@ -44,19 +44,18 @@ export function InvestorProfileHeader({
           </Link>
         </nav>
       </div>
-      <header className="min-w-0 border-b pb-3 sm:pb-5">
+      <header className="min-w-0 border-b pb-3 [container:investor-header/inline-size] sm:pb-5">
         <div
           className={
             photo
-              ? "grid min-w-0 flex-1 grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-x-4 sm:grid-cols-[7rem_minmax(0,1fr)] sm:grid-rows-[auto_1fr] sm:gap-x-6"
+              ? "grid min-w-0 flex-1 grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-x-4 sm:grid-cols-[7rem_minmax(0,1fr)] sm:grid-rows-[auto_1fr] sm:gap-x-6 [@container_investor-header_(max-width:13rem)]:grid-cols-1"
               : "min-w-0 flex-1"
           }
         >
           {photo && (
-            <figure className="sm:row-span-2">
+            <figure className="w-full max-w-[4.5rem] sm:row-span-2 sm:max-w-[7rem]">
               <a
                 href="#portrait-credit"
-                aria-label={`Photograph of ${person.name}, credit and source`}
                 className="group block rounded-xl text-xs text-muted-foreground underline-offset-4 hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 <Image
@@ -76,7 +75,9 @@ export function InvestorProfileHeader({
             </figure>
           )}
           <div className="min-w-0">
-            <h1 className={pageTitle}>{person.name}</h1>
+            <h1 className={`${pageTitle} [overflow-wrap:anywhere]`}>
+              {person.name}
+            </h1>
             <p className="mt-1 max-w-[64ch] text-sm leading-relaxed text-muted-foreground sm:text-base">
               {description}
             </p>
@@ -110,7 +111,7 @@ export function InvestorProfileHeader({
               {publisher && !photo && (
                 <a
                   href={publisher.url}
-                  aria-label={`Portrait of ${person.name} at ${publisher.publisher}`}
+                  aria-label={`Publisher portrait of ${person.name} at ${publisher.publisher}`}
                   className={actionLink}
                 >
                   Publisher portrait{" "}
@@ -129,7 +130,7 @@ export function InvestorPhotoCredit({ slug }: { slug: string }) {
   const photo = portraits[slug];
   if (!photo) return null;
   const link =
-    "text-primary underline decoration-primary/40 underline-offset-4";
+    "text-primary underline underline-offset-4";
   return (
     <footer
       id="portrait-credit"

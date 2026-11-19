@@ -11,7 +11,11 @@ import {
   comparePositions,
 } from "~/@/lib/ownership/quarterly-positions";
 import { sectionTitle } from "~/@/lib/typography";
-import { edgarUrl, type Snapshot } from "~/server/traders/sec-filings";
+import {
+  edgarUrl,
+  type Position,
+  type Snapshot,
+} from "~/server/traders/sec-filings";
 import type {
   FilingPeriod,
   SecHoldings,
@@ -20,7 +24,128 @@ import type {
 const number = new Intl.NumberFormat("en-AU");
 const signed = new Intl.NumberFormat("en-AU", { signDisplay: "exceptZero" });
 const linkStyle =
-  "text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary";
+  "text-primary underline underline-offset-4 hover:decoration-2";
+
+type ReportedPosition = { position: Position; change?: number };
+
+function PositionsTable({
+  rows,
+  caption,
+  showChange = false,
+}: {
+  rows: ReportedPosition[];
+  caption: string;
+  showChange?: boolean;
+}) {
+  return (
+    <Table
+      role="table"
+      className="max-sm:block max-sm:[&_td]:p-0 max-sm:[&_th]:h-auto max-sm:[&_th]:p-0"
+    >
+      <caption className="sr-only">{caption}</caption>
+      <TableHeader role="rowgroup" className="max-sm:block">
+        <TableRow
+          role="row"
+          className="max-sm:grid max-sm:grid-cols-2 max-sm:gap-x-3 max-sm:py-2"
+        >
+          <TableHead role="columnheader" scope="col">
+            Security
+          </TableHead>
+          <TableHead
+            role="columnheader"
+            scope="col"
+            className="text-right max-sm:sr-only"
+          >
+            Quantity
+          </TableHead>
+          {showChange && (
+            <TableHead
+              role="columnheader"
+              scope="col"
+              className="text-right max-sm:sr-only"
+            >
+              Change in quantity
+            </TableHead>
+          )}
+          <TableHead
+            role="columnheader"
+            scope="col"
+            className="text-right max-sm:col-start-2"
+          >
+            Value (US$)
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody role="rowgroup" className="max-sm:block">
+        {rows.map(({ position, change }) => {
+          const units =
+            position.unit === "PRN"
+              ? "principal"
+              : position.option
+                ? "underlying shares"
+                : "shares";
+          return (
+            <TableRow
+              role="row"
+              className="max-sm:grid max-sm:grid-cols-2 max-sm:items-baseline max-sm:gap-x-3 max-sm:gap-y-1.5 max-sm:py-3"
+              key={`${position.cusip}:${position.unit}:${position.option}`}
+            >
+              <TableCell
+                role="cell"
+                className="max-sm:col-start-1 max-sm:row-start-1 max-sm:[overflow-wrap:anywhere]"
+              >
+                <span className="block font-medium">{position.issuer}</span>
+                <span className="text-xs text-muted-foreground">
+                  {position.securityClass}
+                  {position.option &&
+                    ` · ${position.option.toLowerCase()} option`}
+                </span>
+              </TableCell>
+              <TableCell
+                role="cell"
+                className="text-right tabular-nums max-sm:col-start-1 max-sm:row-start-2 max-sm:text-left max-sm:text-xs max-sm:text-muted-foreground"
+              >
+                {number.format(position.quantity)}
+                <span className="text-xs text-muted-foreground sm:block">
+                  {" "}
+                  {units}
+                </span>
+              </TableCell>
+              {showChange && (
+                <TableCell
+                  role="cell"
+                  className="text-right text-xs tabular-nums max-sm:col-start-2 max-sm:row-start-2 max-sm:text-muted-foreground"
+                >
+                  {change !== undefined && (
+                    <span aria-hidden="true" className="sm:hidden">
+                      Change{" "}
+                    </span>
+                  )}
+                  {change === undefined
+                    ? "This filing only"
+                    : signed.format(change)}
+                </TableCell>
+              )}
+              <TableCell
+                role="cell"
+                className="text-right tabular-nums max-sm:col-start-2 max-sm:row-start-1 max-sm:self-start max-sm:[overflow-wrap:anywhere]"
+              >
+                {number.format(position.usd)}
+                {position.option && (
+                  <span className="block text-xs text-muted-foreground">
+                    {position.unit === "PRN"
+                      ? "Underlying security value"
+                      : "Underlying share value"}
+                  </span>
+                )}
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
+  );
+}
 
 function Positions({
   snapshot,
@@ -29,7 +154,21 @@ function Positions({
   snapshot: Snapshot;
   previous?: Snapshot;
 }) {
-  const rows = comparePositions(snapshot, previous);
+  const currentRows: ReportedPosition[] = [];
+  const priorOnly: ReportedPosition[] = [];
+  for (const { current, previous: before } of comparePositions(
+    snapshot,
+    previous,
+  )) {
+    if (current) {
+      currentRows.push({
+        position: current,
+        change: before ? current.quantity - before.quantity : undefined,
+      });
+    } else if (before) {
+      priorOnly.push({ position: before });
+    }
+  }
   const sum = snapshot.positions.reduce((total, row) => total + row.usd, 0);
   return (
     <>
@@ -40,18 +179,20 @@ function Positions({
             {snapshot.positions.length}
           </dd>
         </div>
-        <div>
+        <div className="min-w-0">
           <dt className="text-xs text-muted-foreground">
             Value on filing cover
           </dt>
-          <dd className="mt-1 font-medium tabular-nums">
-            US${number.format(snapshot.totalUsd)}
+          <dd className="mt-1 font-medium tabular-nums [overflow-wrap:anywhere]">
+            US$
+            <wbr />
+            {number.format(snapshot.totalUsd)}
           </dd>
         </div>
       </dl>
       {sum !== snapshot.totalUsd && (
-        <details className="border-l-2 border-primary/50 pl-3 text-sm text-muted-foreground">
-          <summary className="cursor-pointer py-1">
+        <details className="text-sm text-muted-foreground">
+          <summary className="min-h-10 cursor-pointer py-2.5">
             Cover and rows differ by US$
             {number.format(Math.abs(sum - snapshot.totalUsd))}
           </summary>
@@ -75,113 +216,29 @@ function Positions({
           .
         </p>
       )}
-      <Table
-        role="table"
-        className="max-sm:block max-sm:[&_td]:p-0 max-sm:[&_th]:h-auto max-sm:[&_th]:p-0"
-      >
-        <caption className="sr-only">
-          {snapshot.manager} positions reported for {snapshot.filing.period}
-        </caption>
-        <TableHeader role="rowgroup" className="max-sm:block">
-          <TableRow
-            role="row"
-            className="max-sm:grid max-sm:grid-cols-2 max-sm:gap-x-3 max-sm:py-2"
-          >
-            <TableHead role="columnheader" scope="col">
-              Security
-            </TableHead>
-            <TableHead
-              role="columnheader"
-              scope="col"
-              className="text-right max-sm:sr-only"
-            >
-              Quantity
-            </TableHead>
-            {previous && (
-              <TableHead
-                role="columnheader"
-                scope="col"
-                className="text-right max-sm:sr-only"
-              >
-                Change in quantity
-              </TableHead>
-            )}
-            <TableHead
-              role="columnheader"
-              scope="col"
-              className="text-right max-sm:col-start-2"
-            >
-              Value (US$)
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody role="rowgroup" className="max-sm:block">
-          {rows.map(({ current, previous: before }) => {
-            const position = (current ?? before)!;
-            const units =
-              position.unit === "PRN"
-                ? "principal"
-                : position.option
-                  ? "underlying shares"
-                  : "shares";
-            const change = !current
-              ? "Prior filing only"
-              : !before
-                ? "This filing only"
-                : signed.format(current.quantity - before.quantity);
-            return (
-              <TableRow
-                role="row"
-                className="max-sm:grid max-sm:grid-cols-2 max-sm:items-baseline max-sm:gap-x-3 max-sm:gap-y-1.5 max-sm:py-3"
-                key={`${position.cusip}:${position.unit}:${position.option}`}
-              >
-                <TableCell
-                  role="cell"
-                  className="max-sm:col-start-1 max-sm:row-start-1 max-sm:[overflow-wrap:anywhere]"
-                >
-                  <span className="block font-medium">{position.issuer}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {position.securityClass}
-                    {position.option &&
-                      ` · ${position.option.toLowerCase()} option`}
-                  </span>
-                </TableCell>
-                <TableCell
-                  role="cell"
-                  className="text-right tabular-nums max-sm:col-start-1 max-sm:row-start-2 max-sm:text-left max-sm:text-xs max-sm:text-muted-foreground"
-                >
-                  {current ? number.format(current.quantity) : "n/a"}
-                  {current && (
-                    <span className="text-xs text-muted-foreground sm:block">
-                      {" "}
-                      {units}
-                    </span>
-                  )}
-                </TableCell>
-                {previous && (
-                  <TableCell
-                    role="cell"
-                    className="text-right text-xs tabular-nums max-sm:col-start-2 max-sm:row-start-2 max-sm:text-muted-foreground"
-                  >
-                    {current && before && (
-                      <span aria-hidden="true" className="sm:hidden">
-                        Change{" "}
-                      </span>
-                    )}
-                    {change}
-                  </TableCell>
-                )}
-                <TableCell
-                  role="cell"
-                  className="text-right tabular-nums max-sm:col-start-2 max-sm:row-start-1 max-sm:self-start max-sm:[overflow-wrap:anywhere]"
-                >
-                  {current ? number.format(current.usd) : "n/a"}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+      <PositionsTable
+        rows={currentRows}
+        caption={`${snapshot.manager} positions reported for ${snapshot.filing.period}`}
+        showChange={!!previous}
+      />
+      {previous && priorOnly.length > 0 && (
+        <details className="border-t">
+          <summary className="min-h-10 cursor-pointer py-3 text-sm font-medium">
+            Only in the previous filing ({priorOnly.length})
+          </summary>
+          <p className="pb-2 text-xs text-muted-foreground">
+            Quantities and values reported on{" "}
+            <time dateTime={previous.filing.period}>
+              {previous.filing.period}
+            </time>
+            .
+          </p>
+          <PositionsTable
+            rows={priorOnly}
+            caption={`Positions reported only in the previous filing, ${previous.filing.period}`}
+          />
+        </details>
+      )}
     </>
   );
 }
@@ -201,7 +258,7 @@ function Period({
         {period.filings.map((f) => (
           <li key={f.accession}>
             <a
-              className={linkStyle}
+              className={`inline-flex min-h-10 items-center ${linkStyle}`}
               href={edgarUrl(cik, f)}
               target="_blank"
               rel="noopener noreferrer"

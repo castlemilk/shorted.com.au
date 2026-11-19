@@ -27,7 +27,7 @@ const checkedDate = new Intl.DateTimeFormat("en-AU", {
   timeZone: "UTC",
 });
 const link =
-  "text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary";
+  "text-primary underline underline-offset-4 hover:decoration-2";
 
 export function TraderPublicAccounts({
   trader,
@@ -143,7 +143,7 @@ export function TraderPublicAccounts({
                       <li key={account.url}>
                         <a
                           href={account.url}
-                          aria-label={`${label} · ${group.name}${detail ? ` · ${detail}` : ""}`}
+                          aria-label={`${label}${detail ? ` ${detail}` : ""} · ${group.name}`}
                           className="group grid min-h-11 grid-cols-[1rem_minmax(0,1fr)_0.875rem] items-center gap-x-2.5 rounded-sm py-1.5 hover:bg-muted/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                         >
                           <Icon
@@ -153,7 +153,7 @@ export function TraderPublicAccounts({
                           <span className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
                             <span className="font-medium text-foreground underline-offset-4 group-hover:text-primary group-hover:underline">
                               {label}
-                            </span>
+                            </span>{" "}
                             {detail && (
                               <span className="min-w-0 text-xs text-muted-foreground [overflow-wrap:anywhere]">
                                 {detail}

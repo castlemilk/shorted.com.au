@@ -132,6 +132,7 @@ export function FollowInvestor(
           source: safeExternalHref(target.source),
         };
   const followed = useFollowedInvestors().some((p) => p.id === entry.id);
+  const label = followed ? "Following" : "Follow";
   const [error, setError] = useState(false);
   const toggle = () => {
     follows.update((raw) => {
@@ -145,25 +146,26 @@ export function FollowInvestor(
     <span className="inline-flex flex-col items-end gap-1">
       <button
         type="button"
-        aria-label={`Follow ${name}`}
+        aria-label={`${label} ${name}`}
         aria-pressed={followed}
         onClick={toggle}
-        className="min-h-9 rounded-md border px-3 py-1.5 text-xs hover:bg-muted aria-pressed:border-primary aria-pressed:text-primary"
+        className="min-h-10 rounded-md border px-3 py-1.5 text-xs hover:bg-muted aria-pressed:border-primary aria-pressed:text-primary"
       >
-        {followed ? "Following" : "Follow"}
+        {label}
       </button>
       {target.showInbox && followed && (
         <Link
           href={AUSTRALIAN_INVESTORS_PATH + "?view=following"}
           prefetch={false}
-          className="text-xs text-primary underline-offset-4 hover:underline"
+          className="inline-flex min-h-10 items-center text-xs text-primary underline underline-offset-4 hover:decoration-2"
         >
           View followed filings
         </Link>
       )}
       {error && (
         <span role="status" className="text-xs text-muted-foreground">
-          Browser storage unavailable.
+          Following could not be saved. Check site storage in this browser and
+          try again.
         </span>
       )}
     </span>

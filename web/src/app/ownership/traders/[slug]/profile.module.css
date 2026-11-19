@@ -1,5 +1,9 @@
-/* A manager notice keeps the original ASX document beside its release date. */
-@media (max-width: 639px) {
+/* The reporting sidebar can narrow the table even on a desktop viewport. */
+.notices {
+  container: manager-notices / inline-size;
+}
+
+@container manager-notices (max-width: 43rem) {
   .notices table,
   .notices tbody {
     display: block;

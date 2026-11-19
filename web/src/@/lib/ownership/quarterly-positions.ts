@@ -19,7 +19,11 @@ export function adjacentQuarters(older: string, newer: string): boolean {
 function bySecurity(positions: Position[]): Map<string, Position> {
   const result = new Map<string, Position>();
   for (const position of positions) {
-    const key = [position.cusip, position.unit, position.option].join("|");
+    const key = [
+      position.cusip.toUpperCase(),
+      position.unit,
+      position.option,
+    ].join("|");
     const existing = result.get(key);
     if (existing) {
       existing.quantity += position.quantity;
