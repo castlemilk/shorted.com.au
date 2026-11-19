@@ -1,3 +1,4 @@
+import { TRADERS, TRADERS_PATH } from "~/@/lib/ownership/traders";
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -206,6 +207,7 @@ export default async function OwnershipPage() {
     },
     { href: "/ownership/notices", name: "Latest notices", count: overview?.noticesParsed },
     { href: "/ownership/holders", name: "Institutions on the map", count: directory?.total },
+    { href: TRADERS_PATH, name: "Manager profiles", count: TRADERS.length },
   ];
 
   // The notices the parser withheld and a model read (read_by = model), named on the notices' source line.

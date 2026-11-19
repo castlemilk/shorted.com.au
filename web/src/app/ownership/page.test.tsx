@@ -432,7 +432,8 @@ describe("OwnershipPage records and panes (backlog B2)", () => {
     expect(records.getByRole("link", { name: "Registers · 2" })).toHaveAttribute("href", "/ownership/stocks");
     expect(records.getByRole("link", { name: "Latest notices · 7,118" })).toHaveAttribute("href", "/ownership/notices");
     expect(records.getByRole("link", { name: "Institutions on the map · 412" })).toHaveAttribute("href", "/ownership/holders");
-    expect(records.getAllByRole("link")).toHaveLength(5);
+    expect(records.getByRole("link", { name: /Manager profiles/ })).toHaveAttribute("href", "/ownership/traders");
+    expect(records.getAllByRole("link")).toHaveLength(6);
   });
 
   it("omits a record's count when the directory's total is not held", async () => {

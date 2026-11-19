@@ -1,3 +1,4 @@
+import { tradersForHolder, traderHref } from "~/@/lib/ownership/traders";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -226,6 +227,11 @@ export default async function InstitutionPage({ params }: PageProps) {
               </>
             ) : null}
           </p>
+          {tradersForHolder(inst.slug).map((person) => (
+            <Link key={person.slug} href={traderHref(person)} prefetch={false} className="inline-block text-sm text-primary underline-offset-4 hover:underline">
+              {person.name} · trader profile →
+            </Link>
+          ))}
         </header>
 
         <section aria-label="Summary">

@@ -65,6 +65,7 @@
   "/ownership/activity",
   "/ownership/funds",
   "/ownership/holders",
+  "/ownership/traders",
   "/ownership/changes",
   "/themes",
   "/themes/rare-earths",

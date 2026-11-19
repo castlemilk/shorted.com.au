@@ -1,3 +1,4 @@
+import { DirectorName } from "~/@/components/ownership/traders/director-name";
 import { ExternalLink, Users } from "lucide-react";
 import type { DirectorTrade } from "~/gen/shorts/v1alpha1/stock_pb";
 import {
@@ -103,7 +104,7 @@ export function DirectorTradesView({
                   {trade.tradeDate}
                 </TableCell>
                 <TableCell className="font-medium text-sm">
-                  {trade.directorName}
+                  <DirectorName trade={trade} />
                 </TableCell>
                 <TableCell>
                   <Badge

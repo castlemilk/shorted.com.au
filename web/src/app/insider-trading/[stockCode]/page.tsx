@@ -1,3 +1,4 @@
+import { DirectorName } from "~/@/components/ownership/traders/director-name";
 import { type Metadata } from "next";
 import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
@@ -416,7 +417,7 @@ export default async function StockInsiderTradingPage({ params }: PageProps) {
                       {t.tradeDate}
                     </td>
                     <td className="px-4 py-3 text-sm font-medium">
-                      {t.directorName}
+                      <DirectorName trade={t} />
                     </td>
                     <td className="px-4 py-3">
                       <span

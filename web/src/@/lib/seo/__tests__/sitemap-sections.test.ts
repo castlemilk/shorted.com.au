@@ -214,7 +214,7 @@ const pageOf = (rows: Array<Record<string, string>>, { limit = 50, offset = 0 }:
 // (/ownership/stocks/<code>) or a fund (/ownership/funds/<key>).
 const isInstitutionUrl = (url: string) =>
   /\/ownership\/[^/]+$/.test(url) &&
-  !/\/ownership\/(notices|stocks|map|connections|activity|funds|holders|changes)$/.test(url);
+  !/\/ownership\/(notices|stocks|map|connections|activity|funds|holders|traders|changes)$/.test(url);
 beforeEach(() => {
   getOwnershipOverview.mockResolvedValue({ asOf: "2026-10-20", noticesParsed: 6367 });
   listInstitutions.mockResolvedValue({ institutions: institutionsFixture, total: institutionsFixture.length });
@@ -677,6 +677,11 @@ describe("sitemap children", () => {
       { url: "https://shorted.com.au/ownership/funds" },
       { url: "https://shorted.com.au/ownership/holders" },
       { url: "https://shorted.com.au/ownership/changes" },
+      { url: "https://shorted.com.au/ownership/traders" },
+      { url: "https://shorted.com.au/ownership/traders/brad-gerstner" },
+      { url: "https://shorted.com.au/ownership/traders/geoff-wilson" },
+      { url: "https://shorted.com.au/ownership/traders/michael-burry" },
+      { url: "https://shorted.com.au/ownership/traders/david-paradice" },
       // The fund list answers, so the funds are listed, each with its own file date.
       { url: "https://shorted.com.au/ownership/funds/asx%3AVAS", lastModified: "2026-10-20T00:00:00.000Z" },
       {

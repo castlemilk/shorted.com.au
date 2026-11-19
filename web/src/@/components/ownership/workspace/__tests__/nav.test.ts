@@ -6,7 +6,7 @@ const NONE = { sel: "", sector: "" };
 const tab = (id: (typeof OWNERSHIP_TABS)[number]["id"]) => OWNERSHIP_TABS.find((t) => t.id === id)!;
 
 describe("ownership workspace nav (spec 14.1)", () => {
-  it("lists the seven pages in the wireframes' order", () => {
+  it("lists the ownership workspace pages in navigation order", () => {
     expect(OWNERSHIP_TABS.map((t) => t.label)).toEqual([
       "Overview",
       "Market map",
@@ -14,6 +14,7 @@ describe("ownership workspace nav (spec 14.1)", () => {
       "Activity",
       "Funds",
       "Holders",
+      "Traders",
       "Changes",
     ]);
   });
@@ -25,6 +26,8 @@ describe("ownership workspace nav (spec 14.1)", () => {
   });
 
   it("keeps a tab active for the pages nested under it", () => {
+    expect(activeOwnershipTab("/ownership/traders/asx/WAM")).toBe("traders");
+    expect(activeOwnershipTab("/ownership/traders/brad-gerstner")).toBe("traders");
     expect(activeOwnershipTab("/ownership/funds/A200")).toBe("funds");
     expect(activeOwnershipTab("/ownership/holders/vanguard")).toBe("holders");
   });
@@ -54,6 +57,7 @@ describe("tabHref (spec 14.1, backlog C2)", () => {
     activity: ["cell"],
     funds: ["fund", "holding"],
     holders: [],
+    traders: [],
     changes: ["holding"],
   };
   const samples: Record<string, string> = {
@@ -87,7 +91,7 @@ describe("tabHref (spec 14.1, backlog C2)", () => {
   it("carries a zoomed sector on the Overview and the map only", () => {
     expect(tabHref(tab("map"), { sel: "", sector: "Materials" })).toBe("/ownership/map?sector=Materials");
     expect(tabHref(tab("overview"), { sel: "", sector: "Materials" })).toBe("/ownership?sector=Materials");
-    for (const id of ["connections", "activity", "funds", "holders", "changes"] as const) {
+    for (const id of ["connections", "activity", "funds", "holders", "traders", "changes"] as const) {
       expect(tabHref(tab(id), { sel: "", sector: "Materials" })).toBe(tab(id).href);
     }
   });
