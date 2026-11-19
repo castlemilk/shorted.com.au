@@ -17,7 +17,13 @@ import { FollowInvestor } from "./investor-follow";
 
 type Props = {
   code: string;
-  current: { name: string; pct: number; date: string; source?: string }[];
+  current: {
+    name: string;
+    pct: number;
+    date: string;
+    source?: string;
+    votes?: string;
+  }[];
   history: DisclosureRow[];
   limited: boolean;
 };
@@ -82,7 +88,8 @@ function NameView({
               <p className="mt-1 text-sm">
                 {holding ? (
                   <>
-                    {investorPct(holding.pct)} reported voting power ·{" "}
+                    {investorPct(holding.pct)} reported voting power
+                    {holding.votes && ` · ${holding.votes} votes`} ·{" "}
                     {holding.source ? (
                       <a
                         href={holding.source}

@@ -120,6 +120,11 @@ export default async function AustralianInvestorPage({ params }: Props) {
                         <p className="font-semibold tabular-nums">
                           {investorPct(current.pct)}
                         </p>
+                        {current.votes && (
+                          <p className="text-xs text-muted-foreground">
+                            {current.votes} votes
+                          </p>
+                        )}
                         <p>
                           Filed {current.date}
                           {current.source && (

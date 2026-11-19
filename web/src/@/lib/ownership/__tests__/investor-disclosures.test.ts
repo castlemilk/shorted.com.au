@@ -11,6 +11,7 @@ import {
   ranksForInvestor,
 } from "../australian-investors";
 import {
+  currentFilerRow,
   disclosureRow,
   readDiscovery,
   readFilingIdentity,
@@ -177,4 +178,51 @@ it("reports missing pages, repeated cursors and the six-page cap as partial", as
       }))
     ).status,
   ).toBe("complete");
+});
+
+it("uses two visually reviewed forms when the upstream extraction lost decimal digits", () => {
+  const older = make({
+    stockCode: "MHC",
+    holderName: "Eric Sondergaard",
+    announcementUrl:
+      "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03134187",
+    form: "604",
+    presentPct: 1,
+  });
+  older.event = "ceased";
+  expect(disclosureRow(older)).toMatchObject({
+    previous: 12.68,
+    pct: 15.67,
+    ceased: false,
+    event: "increased",
+  });
+  const latest = {
+    ...older,
+    announcementUrl: older.announcementUrl.replace("03134187", "03144160"),
+    presentPct: 80,
+  };
+  expect(disclosureRow(latest)).toMatchObject({
+    previous: 15.67,
+    pct: 12.8,
+    event: "decreased",
+    source:
+      "https://announcements.asx.com.au/asxpdf/20260925/pdf/074jsy8zbzlsmc.pdf",
+  });
+  const interest = create(GetStockOwnershipResponseSchema, {
+    holders: [{ ...latest, votingPowerPct: 80 }],
+  }).holders[0]!;
+  expect(currentFilerRow(interest)).toMatchObject({
+    pct: 12.8,
+    votes: "117,335,000",
+  });
+  for (const changed of [
+    { stockCode: "NRX" },
+    { holderName: "Other holder" },
+    { form: "603" },
+    { announcementUrl: "https://www.asx.com.au/different-pdf" },
+  ]) {
+    expect(
+      disclosureRow({ ...latest, ...changed, event: "increased" }).pct,
+    ).toBe(80);
+  }
 });

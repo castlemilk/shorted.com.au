@@ -11,6 +11,47 @@ import {
   type FilingIdentity,
 } from "./australian-investors";
 
+import reviewedVotes from "./reviewed-filing-votes.json";
+
+type FilingKey = Pick<
+  SubstantialNotice,
+  "stockCode" | "holderName" | "form" | "announcementUrl"
+>;
+const reviewedByUrl = new Map(
+  reviewedVotes.flatMap((r) =>
+    [r.announcement, r.source].map((url) => [url, r] as const),
+  ),
+);
+
+// During a rolling deployment ISR may read an older API or cached register.
+// Only the exact issuer, named filer, form and reviewed PDF can use these figures.
+function reviewedFor(n: FilingKey) {
+  const r = reviewedByUrl.get(n.announcementUrl);
+  return r &&
+    r.code === n.stockCode &&
+    r.form === n.form &&
+    filedNameKey(r.name) === filedNameKey(n.holderName)
+    ? r
+    : undefined;
+}
+
+export function currentFilerRow(
+  h: GetStockOwnershipResponse["holders"][number],
+) {
+  const r = reviewedFor(h);
+  return {
+    name: h.holderName,
+    pct: r?.pct ?? h.votingPowerPct,
+    date: h.announcedOn,
+    votes: r
+      ? r.votes.toLocaleString("en-AU")
+      : h.hasVotes
+        ? h.votes.toLocaleString("en-AU")
+        : undefined,
+    source: r?.source ?? safeExternalHref(h.announcementUrl),
+  };
+}
+
 type Notice = Pick<
   SubstantialNotice,
   | "stockCode"
@@ -28,7 +69,15 @@ type Notice = Pick<
 >;
 
 export function disclosureRow(n: Notice) {
-  const ceased = n.form === "605" || n.event === "ceased";
+  const r = reviewedFor(n);
+  const ceased = r?.ceased ?? (n.form === "605" || n.event === "ceased");
+  const event = r
+    ? r.pct > r.previousPct
+      ? "increased"
+      : r.pct < r.previousPct
+        ? "decreased"
+        : "changed"
+    : n.event;
   return {
     code: n.stockCode,
     company: n.companyName,
@@ -36,11 +85,11 @@ export function disclosureRow(n: Notice) {
     form: n.form,
     date: n.announcedOn,
     effective: n.eventDate,
-    event: n.event,
+    event,
     ceased,
-    pct: !ceased && n.hasPresent ? n.presentPct : null,
-    previous: n.hasPrevious ? n.previousPct : null,
-    source: safeExternalHref(n.announcementUrl) ?? null,
+    pct: ceased ? null : (r?.pct ?? (n.hasPresent ? n.presentPct : null)),
+    previous: r?.previousPct ?? (n.hasPrevious ? n.previousPct : null),
+    source: r?.source ?? safeExternalHref(n.announcementUrl) ?? null,
     profile: investorForFiling(n.stockCode, n.holderName)?.slug ?? null,
   };
 }
@@ -127,14 +176,7 @@ export function readFilingIdentity(
     filing,
     company: data?.summary?.companyName ?? "",
     asOf: data?.asOf ?? "",
-    current: interest
-      ? {
-          pct: interest.votingPowerPct,
-          date: interest.announcedOn,
-          name: interest.holderName,
-          source: safeExternalHref(interest.announcementUrl),
-        }
-      : null,
+    current: interest ? currentFilerRow(interest) : null,
     history: history.filter(matches).map(disclosureRow),
     historyLimited: (data?.historyTotal ?? 0) > history.length,
   };

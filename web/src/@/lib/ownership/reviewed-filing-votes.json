@@ -1,0 +1,26 @@
+[
+  {
+    "code": "MHC",
+    "form": "604",
+    "name": "Eric Sondergaard",
+    "announcement": "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03134187",
+    "source": "https://announcements.asx.com.au/asxpdf/20260901/pdf/073l0w8y6h4yb3.pdf",
+    "previousPct": 12.68,
+    "pct": 15.67,
+    "previousVotes": 87573000,
+    "votes": 117335000,
+    "ceased": false
+  },
+  {
+    "code": "MHC",
+    "form": "604",
+    "name": "Eric Sondergaard",
+    "announcement": "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03144160",
+    "source": "https://announcements.asx.com.au/asxpdf/20260925/pdf/074jsy8zbzlsmc.pdf",
+    "previousPct": 15.67,
+    "pct": 12.8,
+    "previousVotes": 117335000,
+    "votes": 117335000,
+    "ceased": false
+  }
+]

@@ -4,10 +4,12 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { NamedFilerRegister } from "~/@/components/ownership/traders/named-filer-register";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { AUSTRALIAN_INVESTORS_PATH } from "~/@/lib/ownership/australian-investors";
-import { disclosureRow } from "~/@/lib/ownership/investor-disclosures";
+import {
+  currentFilerRow,
+  disclosureRow,
+} from "~/@/lib/ownership/investor-disclosures";
 import { filerPath } from "~/@/lib/ownership/named-filer";
 import { REGISTER_CODE_PATTERN } from "~/@/lib/ownership/kinds";
-import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { lede, pageTitle } from "~/@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import {
@@ -60,12 +62,7 @@ export default async function FiledNamesPage({ params }: Props) {
         {data.asOf ? (
           <NamedFilerRegister
             code={code}
-            current={data.holders.map((h) => ({
-              name: h.holderName,
-              pct: h.votingPowerPct,
-              date: h.announcedOn,
-              source: safeExternalHref(h.announcementUrl),
-            }))}
+            current={data.holders.map(currentFilerRow)}
             history={data.history.map(disclosureRow)}
             limited={data.historyTotal > data.history.length}
           />
