@@ -12,6 +12,8 @@
  *  4. lastmod is never one shared constant sprayed across the document
  */
 
+import { AUSTRALIAN_INVESTORS, investorHref } from "~/@/lib/ownership/australian-investors";
+
 const stockFixture = Array.from({ length: 60 }, (_, i) => ({
   productCode: `S${i.toString().padStart(3, "0")}`.slice(0, 4),
   name: `Company ${i}`,
@@ -682,6 +684,8 @@ describe("sitemap children", () => {
       { url: "https://shorted.com.au/ownership/traders/geoff-wilson" },
       { url: "https://shorted.com.au/ownership/traders/michael-burry" },
       { url: "https://shorted.com.au/ownership/traders/david-paradice" },
+      { url: "https://shorted.com.au/ownership/traders/australia" },
+      ...AUSTRALIAN_INVESTORS.map((p) => ({ url: `https://shorted.com.au${investorHref(p.slug)}` })),
       // The fund list answers, so the funds are listed, each with its own file date.
       { url: "https://shorted.com.au/ownership/funds/asx%3AVAS", lastModified: "2026-10-20T00:00:00.000Z" },
       {

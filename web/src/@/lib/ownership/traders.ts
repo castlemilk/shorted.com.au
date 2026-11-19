@@ -56,7 +56,7 @@ export const TRADERS: readonly TraderProfile[] = [
   },
 ];
 
-export function traderHref(trader: TraderProfile): string {
+export function traderHref(trader: Pick<TraderProfile, "slug">): string {
   return `${TRADERS_PATH}/${trader.slug}`;
 }
 

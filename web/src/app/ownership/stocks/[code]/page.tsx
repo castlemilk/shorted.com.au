@@ -1,3 +1,5 @@
+import { filerPath } from "~/@/lib/ownership/named-filer";
+import { investorHref, issuerInvestors } from "~/@/lib/ownership/australian-investors";
 import { ASX_CODE, directorHref, tradersForHolder, traderHref } from "~/@/lib/ownership/traders";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -241,6 +243,7 @@ export default async function RegisterPage({ params }: PageProps) {
     windowDays: NOTICE_WINDOW_ALL,
     stockCode: code,
   }).toString()}`;
+  const namedInvestors = issuerInvestors(code);
   const linkedManagers = [...new Set(data.holders.flatMap((holder) => tradersForHolder(holder.institutionSlug)))];
   const jsonLd = {
     "@context": "https://schema.org",
@@ -278,6 +281,11 @@ export default async function RegisterPage({ params }: PageProps) {
                 </Link>
               </li>)}
             </ul>}
+            {(data.holders.length > 0 || data.history.length > 0) && <Link href={filerPath(code)} prefetch={false} className="inline-block text-sm text-primary hover:underline">Follow a filer in {code} →</Link>}
+            {namedInvestors.length > 0 && <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+              <span className="text-muted-foreground">Named investor profiles</span>
+              {namedInvestors.map((p) => <Link key={p.slug} href={investorHref(p.slug)} prefetch={false} className="text-primary hover:underline">{p.name}</Link>)}
+            </div>}
             <OwnershipPlate items={plateItems(data, indexFiles, superSpan)} />
             {summary.hasShortPct && STOCK_CODE_PATTERN.test(code) ? <StockLinks code={code} /> : null}
           </header>

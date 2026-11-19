@@ -70,7 +70,7 @@ export const STOCK_ROUTES = [
 // and is cached for its revalidate, as the stock tabs are.
 export const OWNERSHIP_ROUTES = [
   "/ownership/[slug]", "/ownership/stocks/[code]", "/ownership/funds/[fund]",
-  "/ownership/traders/[slug]", "/ownership/traders/asx/[code]",
+  "/ownership/traders/[slug]", "/ownership/traders/asx/[code]", "/ownership/traders/australia/[slug]", "/ownership/traders/asx/[code]/holders",
 ];
 
 // The static ownership pages: the hub, the notice feed, the register list and
@@ -85,7 +85,7 @@ export const OWNERSHIP_STATIC_ROUTES = [
   "/ownership/activity",
   "/ownership/funds",
   "/ownership/holders",
-  "/ownership/traders",
+  "/ownership/traders", "/ownership/traders/australia",
   "/ownership/changes",
 ];
 

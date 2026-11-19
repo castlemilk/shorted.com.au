@@ -12,47 +12,62 @@ const checkedDate = new Intl.DateTimeFormat("en-AU", {
 const link =
   "text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary";
 
-export function TraderPublicAccounts({ trader }: { trader: TraderProfile }) {
+export function TraderPublicAccounts({
+  trader,
+  path = traderHref(trader),
+  joint = false,
+}: {
+  trader: Pick<TraderProfile, "slug" | "name"> & { firm?: string };
+  path?: string;
+  joint?: boolean;
+}) {
   const accounts = publicAccounts[trader.slug];
   const personal = accounts?.personal ?? [];
   const firm = accounts?.firm;
+  const firmName = accounts?.organization ?? trader.firm;
   const coHosted = accounts?.coHosted;
   const groups = [
-    { name: trader.name, accounts: personal },
-    ...(firm?.length ? [{ name: trader.firm, accounts: firm }] : []),
+    ...(!joint || personal.length
+      ? [{ name: trader.name, accounts: personal }]
+      : []),
+    ...(firm?.length ? [{ name: firmName, accounts: firm }] : []),
     ...(coHosted
       ? [{ name: `Co-hosted · ${coHosted.name}`, accounts: coHosted.accounts }]
       : []),
   ];
-  const url = `https://shorted.com.au${traderHref(trader)}`;
+  const url = `https://shorted.com.au${path}`;
   return (
     <section
       id="public-accounts"
       aria-labelledby="public-accounts-title"
       className="scroll-mt-28 space-y-3 border-t pt-3"
     >
-      <JsonLd
-        data={{
-          "@context": "https://schema.org",
-          "@type": "ProfilePage",
-          url,
-          mainEntity: {
-            "@type": "Person",
-            name: trader.name,
+      {!joint && (
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@type": "ProfilePage",
             url,
-            ...(personal.length ? { sameAs: personal.map((a) => a.url) } : {}),
-          },
-          ...(firm?.length
-            ? {
-                mentions: {
-                  "@type": "Organization",
-                  name: trader.firm,
-                  sameAs: firm.map((a) => a.url),
-                },
-              }
-            : {}),
-        }}
-      />
+            mainEntity: {
+              "@type": "Person",
+              name: trader.name,
+              url,
+              ...(personal.length
+                ? { sameAs: personal.map((a) => a.url) }
+                : {}),
+            },
+            ...(firm?.length
+              ? {
+                  mentions: {
+                    "@type": "Organization",
+                    name: firmName,
+                    sameAs: firm.map((a) => a.url),
+                  },
+                }
+              : {}),
+          }}
+        />
+      )}
       <h2 id="public-accounts-title" className={eyebrow}>
         Public accounts
       </h2>

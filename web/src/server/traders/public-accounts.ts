@@ -4,7 +4,7 @@ interface AccountSource {
 }
 
 export interface PublicAccount {
-  platform: "LinkedIn" | "X" | "Substack" | "YouTube";
+  platform: "LinkedIn" | "X" | "Substack" | "YouTube" | "Official website";
   url: string;
   handle?: string;
   source: AccountSource;
@@ -12,6 +12,7 @@ export interface PublicAccount {
 
 export interface TraderAccounts {
   reviewedOn: string;
+  organization?: string;
   personal: readonly PublicAccount[];
   firm?: readonly PublicAccount[];
   coHosted?: { name: string; accounts: readonly PublicAccount[] };
@@ -35,6 +36,58 @@ const wilsonPost: AccountSource = {
 export const publicAccounts: Readonly<
   Record<string, TraderAccounts | undefined>
 > = {
+  "gina-rinehart": {
+    reviewedOn: "2026-11-19",
+    personal: [
+      {
+        platform: "Official website",
+        url: "https://www.ginarinehart.com.au/",
+        source: {
+          title: "Gina Rinehart’s official site",
+          url: "https://www.ginarinehart.com.au/",
+        },
+      },
+    ],
+  },
+  "richard-white": {
+    reviewedOn: "2026-11-19",
+    organization: "WiseTech Global",
+    personal: [],
+    firm: [
+      {
+        platform: "LinkedIn",
+        url: "https://www.linkedin.com/company/13728/",
+        source: {
+          title: "WiseTech Global board page",
+          url: "https://www.wisetechglobal.com/investors/our-board-of-directors/",
+        },
+      },
+      {
+        platform: "X",
+        url: "https://x.com/WiseTechGlobal",
+        handle: "@WiseTechGlobal",
+        source: {
+          title: "WiseTech Global board page",
+          url: "https://www.wisetechglobal.com/investors/our-board-of-directors/",
+        },
+      },
+    ],
+  },
+  "wesley-and-emma-maas": {
+    reviewedOn: "2026-11-19",
+    organization: "Maas Group Holdings",
+    personal: [],
+    firm: [
+      {
+        platform: "LinkedIn",
+        url: "https://www.linkedin.com/company/maas-group-pty-limited/",
+        source: {
+          title: "Maas Group Holdings website",
+          url: "https://www.maasgroup.com.au/",
+        },
+      },
+    ],
+  },
   "brad-gerstner": {
     reviewedOn: "2026-11-19",
     personal: [
