@@ -322,4 +322,4 @@ export const issuerInvestors = (code: string) =>
   AUSTRALIAN_INVESTORS.filter((p) => investorCodes(p).includes(code));
 
 export const investorPct = (value: number) =>
-  `${value.toLocaleString("en-AU", { maximumFractionDigits: 3 })}%`;
+  `${value.toLocaleString("en-AU", { maximumFractionDigits: 4 })}%`;

@@ -77,7 +77,7 @@ export default async function AustralianInvestorPage({ params }: Props) {
             <h1 className={pageTitle}>{person.name}</h1>
             <p className={lede}>{person.description}</p>
           </div>
-          <FollowInvestor slug={person.slug} name={person.name} />
+          <FollowInvestor showInbox slug={person.slug} name={person.name} />
         </header>
         {registers.length > 0 && (
           <section

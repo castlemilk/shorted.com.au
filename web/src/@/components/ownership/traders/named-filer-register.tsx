@@ -116,9 +116,14 @@ function NameView({
               )}
             </div>
             {profile ? (
-              <FollowInvestor slug={profile.slug} name={profile.name} />
+              <FollowInvestor
+                showInbox
+                slug={profile.slug}
+                name={profile.name}
+              />
             ) : (
               <FollowInvestor
+                showInbox
                 code={code}
                 name={name}
                 source={holding?.source ?? notices[0]?.source ?? undefined}

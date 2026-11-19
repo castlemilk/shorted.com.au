@@ -66,11 +66,14 @@ type Notice = Pick<
   | "announcedOn"
   | "announcementUrl"
   | "event"
->;
+> &
+  Partial<Pick<SubstantialNotice, "ceased">>;
 
 export function disclosureRow(n: Notice) {
   const r = reviewedFor(n);
-  const ceased = r?.ceased ?? (n.form === "605" || n.event === "ceased");
+  const ceased =
+    r?.ceased ??
+    (n.form === "605" || n.event === "ceased" || n.ceased === true);
   const event = r
     ? r.pct > r.previousPct
       ? "increased"
