@@ -3,6 +3,7 @@ import styles from "./profile.module.css";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
+import { JsonLd } from "~/@/components/seo/json-ld";
 import { ExternalLinkSymbol } from "~/@/components/ownership/external-link-glyph";
 import { NoticeTable } from "~/@/components/ownership/notice-table";
 import { SubstantialHoldingsTable } from "~/@/components/ownership/ownership-tables";
@@ -29,6 +30,12 @@ import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { getInstitutionOrNotFound } from "~/app/actions/getOwnership";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { getSecHoldings } from "~/server/traders/get-sec-holdings";
+import { edgarUrl } from "~/server/traders/sec-filings";
+import {
+  investorPageMetadata,
+  investorPageSchema,
+  professionalRecord,
+} from "~/server/traders/profile-metadata";
 
 export const revalidate = 3600;
 export const dynamicParams = true;
@@ -44,11 +51,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const person = TRADERS.find((p) => p.slug === slug);
   if (!person) return { title: "Trader not found", robots: { index: false } };
-  return {
-    title: `${person.name} | Disclosed holdings`,
-    description: `Explore ${person.name}’s connection to ${person.firm} and see the firm’s dated disclosures and source filings.`,
-    alternates: { canonical: `https://shorted.com.au${traderHref(person)}` },
-  };
+  return investorPageMetadata(person);
 }
 
 async function AsxPositions({ holder }: { holder: string }) {
@@ -140,11 +143,24 @@ export default async function TraderPage({ params }: Props) {
   ];
   return (
     <DashboardLayout>
+      <JsonLd
+        data={investorPageSchema(
+          person,
+          reporting.market === "US"
+            ? sec?.periods.flatMap((p) =>
+                p.filings.map((f) => edgarUrl(reporting.cik, f)),
+              )
+            : person.director
+              ? [person.director.source]
+              : [],
+        )}
+      />
       <div className="mx-auto min-w-0 max-w-6xl space-y-4 max-[359px]:-mx-5 sm:space-y-6">
         <InvestorProfileHeader
           person={person}
           crumbs={crumbs}
           description={`${person.role} · ${person.firm}`}
+          record={professionalRecord(person)}
         />
         <div className="grid min-w-0 items-start gap-7 lg:grid-cols-[minmax(0,1fr)_18rem]">
           <div

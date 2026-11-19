@@ -69,6 +69,7 @@ const profiles = AUSTRALIAN_INVESTORS.map((p) => {
     rank: ranks[0],
     search: [
       p.name,
+      ...(p.alternateName ? [p.alternateName] : []),
       ...codes,
       ...p.filings.map((f) => f.filedName),
       ...ranks.flatMap((r) => [r.name, r.company]),
@@ -156,7 +157,10 @@ function People({
                       {person.name}
                     </Link>
                     {filedName &&
-                      filedNameKey(filedName) !== filedNameKey(person.name) && (
+                      filedNameKey(filedName).replace(
+                        /^(?:mr|mrs|ms)\.? +/,
+                        "",
+                      ) !== filedNameKey(person.name) && (
                         <p className="mt-1 break-words text-xs text-muted-foreground">
                           {filedName}
                         </p>

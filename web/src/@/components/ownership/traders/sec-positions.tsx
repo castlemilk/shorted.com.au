@@ -10,6 +10,7 @@ import {
   adjacentQuarters,
   comparePositions,
 } from "~/@/lib/ownership/quarterly-positions";
+import { displayRecordDate } from "~/server/traders/profile-metadata";
 import { sectionTitle } from "~/@/lib/typography";
 import {
   edgarUrl,
@@ -37,6 +38,10 @@ function PositionsTable({
   caption: string;
   showChange?: boolean;
 }) {
+  const largestValue = rows.reduce(
+    (largest, row) => Math.max(largest, row.position.usd),
+    0,
+  );
   return (
     <Table
       role="table"
@@ -73,6 +78,11 @@ function PositionsTable({
             className="text-right max-sm:col-start-2"
           >
             Value (US$)
+            {largestValue > 0 && (
+              <span className="block text-xs font-normal text-muted-foreground">
+                Bar vs largest
+              </span>
+            )}
           </TableHead>
         </TableRow>
       </TableHeader>
@@ -131,6 +141,19 @@ function PositionsTable({
                 className="text-right tabular-nums max-sm:col-start-2 max-sm:row-start-1 max-sm:self-start max-sm:[overflow-wrap:anywhere]"
               >
                 {number.format(position.usd)}
+                {largestValue > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="ml-auto mt-1 block h-1 w-16 max-w-full bg-border/70 sm:w-20"
+                  >
+                    <span
+                      className="block h-full bg-primary/70"
+                      style={{
+                        width: `${(position.usd / largestValue) * 100}%`,
+                      }}
+                    />
+                  </span>
+                )}
                 {position.option && (
                   <span className="block text-xs text-muted-foreground">
                     {position.unit === "PRN"
@@ -170,29 +193,33 @@ function Positions({
     }
   }
   const sum = snapshot.positions.reduce((total, row) => total + row.usd, 0);
+  const currentId = `positions-${snapshot.filing.period}`;
+  const priorId =
+    previous &&
+    `previous-only-${previous.filing.period}-to-${snapshot.filing.period}`;
   return (
     <>
-      <dl className="flex flex-wrap gap-x-10 gap-y-3 border-y py-3">
-        <div>
-          <dt className="text-xs text-muted-foreground">Entries filed</dt>
-          <dd className="mt-1 font-medium tabular-nums">
-            {snapshot.positions.length}
-          </dd>
-        </div>
+      <dl className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-4 border-y py-3">
         <div className="min-w-0">
           <dt className="text-xs text-muted-foreground">
             Value on filing cover
           </dt>
-          <dd className="mt-1 font-medium tabular-nums [overflow-wrap:anywhere]">
-            US$
+          <dd className="mt-1 text-lg font-medium leading-tight tabular-nums [overflow-wrap:anywhere] sm:text-3xl">
+            <span className="mr-1 text-sm text-muted-foreground">US$</span>
             <wbr />
             {number.format(snapshot.totalUsd)}
+          </dd>
+        </div>
+        <div className="text-right">
+          <dt className="text-xs text-muted-foreground">Entries filed</dt>
+          <dd className="mt-1 text-lg font-medium leading-tight tabular-nums sm:text-2xl">
+            {snapshot.positions.length}
           </dd>
         </div>
       </dl>
       {sum !== snapshot.totalUsd && (
         <details className="text-sm text-muted-foreground">
-          <summary className="min-h-10 cursor-pointer py-2.5">
+          <summary className="min-h-6 cursor-pointer text-xs leading-6">
             Cover and rows differ by US$
             {number.format(Math.abs(sum - snapshot.totalUsd))}
           </summary>
@@ -208,35 +235,63 @@ function Positions({
         </p>
       )}
       {previous && (
-        <p className="text-xs text-muted-foreground">
-          Quantity change since{" "}
-          <time dateTime={previous.filing.period}>
-            {previous.filing.period}
-          </time>
-          .
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-x-2 text-xs">
+          <p className="text-muted-foreground">
+            <span className="sm:hidden">Since</span>
+            <span className="hidden sm:inline">Change since</span>{" "}
+            <time dateTime={previous.filing.period}>
+              {displayRecordDate(previous.filing.period)}
+            </time>
+          </p>
+          {priorOnly.length > 0 && (
+            <a
+              href={`#${priorId}`}
+              className={`inline-flex min-h-10 items-center ${linkStyle}`}
+            >
+              {priorOnly.length} previous-only{" "}
+              {priorOnly.length === 1 ? "position" : "positions"} ↓
+            </a>
+          )}
+        </div>
       )}
-      <PositionsTable
-        rows={currentRows}
-        caption={`${snapshot.manager} positions reported for ${snapshot.filing.period}`}
-        showChange={!!previous}
-      />
+      <div id={currentId} tabIndex={-1} className="scroll-mt-32">
+        <PositionsTable
+          rows={currentRows}
+          caption={`${snapshot.manager} positions reported for ${snapshot.filing.period}`}
+          showChange={!!previous}
+        />
+      </div>
       {previous && priorOnly.length > 0 && (
         <details className="border-t">
           <summary className="min-h-10 cursor-pointer py-3 text-sm font-medium">
             Only in the previous filing ({priorOnly.length})
           </summary>
-          <p className="pb-2 text-xs text-muted-foreground">
-            Quantities and values reported on{" "}
-            <time dateTime={previous.filing.period}>
-              {previous.filing.period}
-            </time>
-            .
-          </p>
-          <PositionsTable
-            rows={priorOnly}
-            caption={`Positions reported only in the previous filing, ${previous.filing.period}`}
-          />
+          <div id={priorId} tabIndex={-1} className="scroll-mt-32 space-y-2">
+            <h3 className="text-base font-semibold">
+              Positions only in the previous filing
+            </h3>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Reported on{" "}
+              <time dateTime={previous.filing.period}>
+                {displayRecordDate(previous.filing.period)}
+              </time>
+              {" and absent from the "}
+              <time dateTime={snapshot.filing.period}>
+                {displayRecordDate(snapshot.filing.period)}
+              </time>{" "}
+              filing.
+            </p>
+            <PositionsTable
+              rows={priorOnly}
+              caption={`Positions reported only in the previous filing, ${previous.filing.period}`}
+            />
+            <a
+              href={`#${currentId}`}
+              className={`inline-flex min-h-10 items-center text-sm ${linkStyle}`}
+            >
+              Back to current positions ↑
+            </a>
+          </div>
         </details>
       )}
     </>
@@ -247,27 +302,39 @@ function Period({
   cik,
   period,
   previous,
+  showQuarter = false,
 }: {
   cik: string;
   period: FilingPeriod;
   previous?: Snapshot;
+  showQuarter?: boolean;
 }) {
   return (
-    <div className="space-y-3">
-      <ul className="flex flex-wrap gap-3 text-sm">
-        {period.filings.map((f) => (
-          <li key={f.accession}>
-            <a
-              className={`inline-flex min-h-10 items-center ${linkStyle}`}
-              href={edgarUrl(cik, f)}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {f.form} filed {f.filed} ↗
-            </a>
-          </li>
-        ))}
-      </ul>
+    <div className="space-y-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-4">
+        {showQuarter && (
+          <h3 className="text-sm font-medium">
+            Quarter ended{" "}
+            <time dateTime={period.filings[0]!.period}>
+              {displayRecordDate(period.filings[0]!.period)}
+            </time>
+          </h3>
+        )}
+        <ul className="flex flex-wrap gap-x-3 text-sm">
+          {period.filings.map((f) => (
+            <li key={f.accession}>
+              <a
+                className={`inline-flex min-h-10 items-center ${linkStyle}`}
+                href={edgarUrl(cik, f)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {f.form} filed {f.filed} ↗
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
       {period.note && (
         <p className="text-sm text-muted-foreground">{period.note}</p>
       )}
@@ -300,7 +367,11 @@ export function SecPositions({
       className="min-w-0 space-y-3 sm:space-y-5"
       aria-labelledby="quarterly-holdings"
     >
-      <h2 id="quarterly-holdings" className={sectionTitle}>
+      <h2
+        id="quarterly-holdings"
+        tabIndex={-1}
+        className={`scroll-mt-32 ${sectionTitle}`}
+      >
         Quarterly holdings
       </h2>
       {latest?.snapshot && (
@@ -315,12 +386,7 @@ export function SecPositions({
         </p>
       )}
       {latest ? (
-        <>
-          <h3 className="font-semibold">
-            Quarter ended {latest.filings[0]!.period}
-          </h3>
-          <Period cik={cik} period={latest} previous={previous} />
-        </>
+        <Period cik={cik} period={latest} previous={previous} showQuarter />
       ) : (
         <p>No recent 13F report was available for this manager.</p>
       )}

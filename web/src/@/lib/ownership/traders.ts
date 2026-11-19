@@ -6,6 +6,8 @@ export interface TraderProfile {
   firm: string;
   role: string;
   roleSource: string;
+  roleAsOf?: string;
+  milestone: { label: string; date: string };
   reporting: { market: "ASX"; holder: string } | { market: "US"; cik: string };
   director?: { code: string; name: string; source: string };
 }
@@ -18,6 +20,7 @@ export const TRADERS: readonly TraderProfile[] = [
     name: "Brad Gerstner",
     firm: "Altimeter Capital Management, LP",
     role: "Founder",
+    milestone: { label: "Founded Altimeter", date: "2008" },
     roleSource:
       "https://www.sec.gov/Archives/edgar/data/1830232/000114036121000703/nt10017539x6_424b4.htm",
     reporting: { market: "US", cik: "0001541617" },
@@ -26,7 +29,8 @@ export const TRADERS: readonly TraderProfile[] = [
     slug: "geoff-wilson",
     name: "Geoff Wilson",
     firm: "Wilson Asset Management",
-    role: "Founder",
+    role: "Chairman and chief investment officer",
+    milestone: { label: "Founded Wilson Asset Management", date: "1997" },
     roleSource:
       "https://wilsonassetmanagement.com.au/about-us/geoff-wilson-ao/",
     reporting: { market: "ASX", holder: "wilson-asset-management" },
@@ -42,6 +46,8 @@ export const TRADERS: readonly TraderProfile[] = [
     name: "Michael Burry",
     firm: "Scion Asset Management, LLC",
     role: "CEO signing the September 2025 filing",
+    roleAsOf: "2025-11-03",
+    milestone: { label: "Signed Scion’s Form 13F", date: "2025-11-03" },
     roleSource:
       "https://www.sec.gov/Archives/edgar/data/1649339/000164933925000007/xslForm13F_X02/primary_doc.xml",
     reporting: { market: "US", cik: "0001649339" },
@@ -51,6 +57,7 @@ export const TRADERS: readonly TraderProfile[] = [
     name: "David Paradice",
     firm: "Paradice Investment Management",
     role: "Founder",
+    milestone: { label: "Founded the firm in Sydney", date: "1999" },
     roleSource: "https://paradice.com/about/",
     reporting: { market: "ASX", holder: "paradice" },
   },

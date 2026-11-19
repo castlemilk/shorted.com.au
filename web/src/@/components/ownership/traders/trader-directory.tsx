@@ -44,9 +44,8 @@ export function TraderDirectory() {
         <ul className="mt-5 divide-y border-y">
           {visible.map((p) => (
             <li key={p.slug}>
-              <Link
+              <a
                 href={traderHref(p)}
-                prefetch={false}
                 className="group grid grid-cols-[1fr_auto] items-center gap-3 px-1 py-4 hover:bg-muted/30 focus-visible:outline-primary"
               >
                 <span className="min-w-0">
@@ -61,7 +60,7 @@ export function TraderDirectory() {
                   {p.reporting.market === "ASX" ? "ASX notices" : "SEC 13F"}
                   <ArrowUpRight aria-hidden className="h-4 w-4" />
                 </span>
-              </Link>
+              </a>
             </li>
           ))}
         </ul>

@@ -1,13 +1,11 @@
 import { ArrowUpRight } from "lucide-react";
 import { accountPlatforms } from "./account-platforms";
-import { JsonLd } from "~/@/components/seo/json-ld";
-import { traderHref, type TraderProfile } from "~/@/lib/ownership/traders";
+import { type TraderProfile } from "~/@/lib/ownership/traders";
 import { sectionTitle } from "~/@/lib/typography";
 import {
   publicAccounts,
   type PublicAccount,
 } from "~/server/traders/public-accounts";
-import { portraits } from "~/server/traders/portraits";
 import snapshot from "~/server/traders/account-crawl.json";
 
 const checks: Record<string, { status: string; links?: string[] } | undefined> =
@@ -26,16 +24,13 @@ const checkedDate = new Intl.DateTimeFormat("en-AU", {
   year: "numeric",
   timeZone: "UTC",
 });
-const link =
-  "text-primary underline underline-offset-4 hover:decoration-2";
+const link = "text-primary underline underline-offset-4 hover:decoration-2";
 
 export function TraderPublicAccounts({
   trader,
-  path = traderHref(trader),
   joint = false,
 }: {
   trader: Pick<TraderProfile, "slug" | "name"> & { firm?: string };
-  path?: string;
   joint?: boolean;
 }) {
   const accounts = publicAccounts[trader.slug];
@@ -74,8 +69,6 @@ export function TraderPublicAccounts({
       }
     }
   }
-  const url = `https://shorted.com.au${path}`;
-  const portrait = portraits[trader.slug];
   return (
     <section
       id="public-accounts"
@@ -83,43 +76,6 @@ export function TraderPublicAccounts({
       tabIndex={-1}
       className="scroll-mt-32 space-y-4"
     >
-      {!joint && (
-        <JsonLd
-          data={{
-            "@context": "https://schema.org",
-            "@type": "ProfilePage",
-            url,
-            mainEntity: {
-              "@type": "Person",
-              name: trader.name,
-              url,
-              ...(portrait
-                ? {
-                    image: {
-                      "@type": "ImageObject",
-                      contentUrl: `https://shorted.com.au${portrait.image}`,
-                      creditText: portrait.credit,
-                      license: portrait.licenseUrl,
-                      isBasedOn: portrait.source,
-                    },
-                  }
-                : {}),
-              ...(personal.length
-                ? { sameAs: personal.map((a) => a.url) }
-                : {}),
-            },
-            ...(firm?.length
-              ? {
-                  mentions: {
-                    "@type": "Organization",
-                    name: firmName,
-                    sameAs: firm.map((a) => a.url),
-                  },
-                }
-              : {}),
-          }}
-        />
-      )}
       <h2 id="public-accounts-title" className={sectionTitle}>
         Public accounts
       </h2>

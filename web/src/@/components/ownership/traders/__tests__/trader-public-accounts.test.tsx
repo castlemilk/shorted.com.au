@@ -1,4 +1,10 @@
 import { render, screen, within } from "@testing-library/react";
+import { investorBySlug } from "~/@/lib/ownership/australian-investors";
+import { JsonLd } from "~/@/components/seo/json-ld";
+import {
+  investorPageMetadata,
+  investorPageSchema,
+} from "~/server/traders/profile-metadata";
 import { TRADERS } from "~/@/lib/ownership/traders";
 import { TraderPublicAccounts } from "../trader-public-accounts";
 import {
@@ -8,7 +14,12 @@ import {
 
 function show(slug: string) {
   const trader = TRADERS.find((p) => p.slug === slug)!;
-  const { container } = render(<TraderPublicAccounts trader={trader} />);
+  const { container } = render(
+    <>
+      <JsonLd data={investorPageSchema(trader)} />
+      <TraderPublicAccounts trader={trader} />
+    </>,
+  );
   const accounts = within(
     screen.getByRole("region", { name: "Public accounts" }),
   );
@@ -71,7 +82,12 @@ it("links Burry's Substack author and X accounts without assigning a LinkedIn na
     "https://substack.com/@michaeljburry",
   ]);
   expect(accounts.queryByRole("link", { name: /LinkedIn/ })).toBeNull();
-  expect(schema.mentions).toBeUndefined();
+  expect(schema.mentions).toMatchObject({
+    name: "Scion Asset Management, LLC",
+    identifier: { propertyID: "SEC CIK", value: "0001649339" },
+  });
+  expect(schema.mainEntity).not.toHaveProperty("jobTitle");
+  expect(schema.mentions?.sameAs).toBeUndefined();
 });
 
 it("shows the Australian firm when the founder's personal accounts are unresolved", () => {
@@ -133,13 +149,7 @@ it("links to the named publisher portrait for a person without a licensed local 
 
 it("keeps joint filers separate from organisations and their portraits", () => {
   const trader = { name: "Wesley and Emma Maas", slug: "wesley-and-emma-maas" };
-  const { container } = render(
-    <TraderPublicAccounts
-      trader={trader}
-      path="/ownership/traders/australia/wesley-and-emma-maas"
-      joint
-    />,
-  );
+  const { container } = render(<TraderPublicAccounts trader={trader} joint />);
   expect(
     container.querySelector('script[type="application/ld+json"]'),
   ).toBeNull();
@@ -193,7 +203,6 @@ it("shows the actual website domain on a website-only profile", () => {
   render(
     <TraderPublicAccounts
       trader={{ slug: "gina-rinehart", name: "Gina Rinehart" }}
-      path="/ownership/traders/australia/gina-rinehart"
     />,
   );
   const links = within(
@@ -203,4 +212,59 @@ it("shows the actual website domain on a website-only profile", () => {
   expect(links[0]).toHaveTextContent("Website");
   expect(links[0]).toHaveTextContent("ginarinehart.com.au");
   expect(links[0]).toHaveAttribute("href", "https://www.ginarinehart.com.au/");
+});
+
+it("describes named, no-account shareholders with the dated register and board source", () => {
+  const brown = investorBySlug("hvn-christopher-herbert-brown")!;
+  const schema = investorPageSchema(brown);
+  expect(schema).toMatchObject({
+    "@type": "ProfilePage",
+    mainEntity: {
+      name: "Christopher Herbert Brown",
+      jobTitle: "Non-executive director",
+      affiliation: { name: "Harvey Norman Holdings" },
+    },
+    citation: expect.arrayContaining([
+      expect.objectContaining({ url: expect.stringContaining("#page=161") }),
+      expect.objectContaining({
+        url: expect.stringContaining("board-of-directors"),
+      }),
+    ]),
+  });
+  expect(brown.filings[0]?.filedName).toBe("Mr. Christopher Herbert Brown");
+  expect(schema).not.toHaveProperty("mainEntity.sameAs");
+  expect(investorPageSchema(investorBySlug("gina-rinehart")!)).toMatchObject({
+    mainEntity: { alternateName: "Georgina Hope Rinehart" },
+  });
+  const meta = investorPageMetadata(brown);
+  expect(meta.description).toMatch(/16\.495%.*26 Aug 2026/);
+  expect(meta.openGraph).toMatchObject({
+    type: "profile",
+    images: [
+      expect.objectContaining({
+        url: expect.stringContaining(
+          "hvn-christopher-herbert-brown/opengraph-image",
+        ),
+      }),
+    ],
+  });
+});
+
+it.each([
+  ["wesley-and-emma-maas", ["Wesley Jon Maas", "Emma Margaret Maas"]],
+  [
+    "wtc-michael-and-suzanne-gregg",
+    ["Michael John Gregg", "Suzanne Jane Gregg"],
+  ],
+])("identifies the two named filers separately on %s", (slug, names) => {
+  const person = investorBySlug(slug as string)!;
+  const schema = investorPageSchema(person);
+  expect(schema).toMatchObject({
+    "@type": "CollectionPage",
+    about: (names as string[]).map((name) => ({ "@type": "Person", name })),
+  });
+  expect(schema).not.toHaveProperty("mainEntity");
+  expect(investorPageMetadata(person).openGraph).toMatchObject({
+    type: "website",
+  });
 });

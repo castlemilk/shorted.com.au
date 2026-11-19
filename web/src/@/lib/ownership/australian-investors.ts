@@ -14,7 +14,9 @@ export type AustralianInvestor = {
   slug: string;
   name: string;
   description: string;
+  alternateName?: string;
   filings: FilingIdentity[];
+  jointNames?: readonly [string, string];
 };
 
 const asxFiling = (
@@ -31,6 +33,7 @@ const filingProfiles: AustralianInvestor[] = [
   {
     slug: "gina-rinehart",
     name: "Gina Rinehart",
+    alternateName: "Georgina Hope Rinehart",
     description:
       "Georgina Hope Rinehart and Hancock Prospecting report these voting interests together.",
     filings: [
@@ -49,6 +52,7 @@ const filingProfiles: AustralianInvestor[] = [
   {
     slug: "gerald-harvey",
     name: "Gerry Harvey",
+    alternateName: "Gerald Harvey",
     description:
       "Harvey Norman names Gerald Harvey on its share register. His substantial holding notice includes the associates in its annexure.",
     filings: [
@@ -62,6 +66,7 @@ const filingProfiles: AustralianInvestor[] = [
   {
     slug: "wesley-and-emma-maas",
     name: "Wesley and Emma Maas",
+    jointNames: ["Wesley Jon Maas", "Emma Margaret Maas"],
     description:
       "Wesley Jon Maas and Emma Margaret Maas file jointly. Their annual register entries identify each registered shareholder separately.",
     filings: [
@@ -95,6 +100,8 @@ export type RankedHolder = {
   shares: number;
   pct: number;
   profile: string;
+  profileName?: string;
+  jointNames?: readonly [string, string];
 };
 
 type RegisterSnapshot = {
@@ -203,6 +210,7 @@ export const REGISTER_SNAPSHOTS: RegisterSnapshot[] = [
         shares: 4853986,
         pct: 1.38,
         profile: "mgh-leesa-jane-rooke",
+        profileName: "Leesa Jane Rooke",
       },
       {
         rank: 18,
@@ -224,6 +232,7 @@ export const REGISTER_SNAPSHOTS: RegisterSnapshot[] = [
         shares: 2218500,
         pct: 0.63,
         profile: "mgh-david-michael-rooke",
+        profileName: "David Michael Rooke",
       },
     ],
   },
@@ -248,6 +257,8 @@ export const REGISTER_SNAPSHOTS: RegisterSnapshot[] = [
         shares: 4500000,
         pct: 1.34,
         profile: "wtc-michael-and-suzanne-gregg",
+        profileName: "Michael and Suzanne Gregg",
+        jointNames: ["Michael John Gregg", "Suzanne Jane Gregg"],
       },
       {
         rank: 12,
@@ -268,9 +279,11 @@ export const RANKED_HOLDERS = REGISTER_SNAPSHOTS.flatMap(
 const profiles = new Map(filingProfiles.map((person) => [person.slug, person]));
 for (const holder of RANKED_HOLDERS) {
   if (!profiles.has(holder.profile)) {
+    const withoutTitle = holder.name.replace(/^(?:mr|mrs|ms)\.? +/i, "");
     profiles.set(holder.profile, {
       slug: holder.profile,
-      name: holder.name,
+      name: holder.profileName ?? withoutTitle,
+      ...(holder.jointNames && { jointNames: holder.jointNames }),
       description: `${holder.company} names this shareholder in its annual top-20 register.`,
       filings: [
         {
@@ -278,7 +291,7 @@ for (const holder of RANKED_HOLDERS) {
           filedName: holder.name,
           source: holder.source,
           basis: "annual",
-          aliases: [holder.name.replace(/^(?:mr|mrs|ms)\.? +/i, "")],
+          aliases: [withoutTitle],
         },
       ],
     });

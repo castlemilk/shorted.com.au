@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
-import { AnnualRanks } from "~/@/components/ownership/traders/annual-ranks";
+import {
+  AnnualRanks,
+  AnnualRankSummary,
+} from "~/@/components/ownership/traders/annual-ranks";
+import { JsonLd } from "~/@/components/seo/json-ld";
 import { FilingHistory } from "~/@/components/ownership/traders/filing-history";
 import { FollowInvestor } from "~/@/components/ownership/traders/investor-follow";
 import { TraderPublicAccounts } from "~/@/components/ownership/traders/trader-public-accounts";
@@ -24,6 +28,11 @@ import { sectionTitle } from "~/@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { getStockOwnership } from "~/app/actions/getOwnership";
 import { publicAccounts } from "~/server/traders/public-accounts";
+import {
+  investorPageMetadata,
+  investorPageSchema,
+  professionalRecord,
+} from "~/server/traders/profile-metadata";
 
 export const revalidate = 3600;
 export const dynamicParams = true;
@@ -35,17 +44,10 @@ type Props = { params: Promise<{ slug: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const person = investorBySlug((await params).slug);
   if (!person) notFound();
-  return {
-    title: `${person.name} · ASX ownership disclosures`,
-    description: person.description,
-    alternates: {
-      canonical: `https://shorted.com.au${investorHref(person.slug)}`,
-    },
-  };
+  return investorPageMetadata(person);
 }
 
-const link =
-  "text-primary underline underline-offset-4 hover:decoration-2";
+const link = "text-primary underline underline-offset-4 hover:decoration-2";
 
 export default async function AustralianInvestorPage({ params }: Props) {
   const person = investorBySlug((await params).slug);
@@ -73,12 +75,22 @@ export default async function AustralianInvestorPage({ params }: Props) {
       (r) => r.filing.basis === "annual" && !r.current && !r.history.length,
     );
   const accounts = publicAccounts[person.slug];
+  const record = professionalRecord(person);
   return (
     <DashboardLayout>
+      <JsonLd
+        data={investorPageSchema(
+          person,
+          registers.flatMap((r) =>
+            r.current?.source ? [r.current.source] : [],
+          ),
+        )}
+      />
       <div className="mx-auto min-w-0 max-w-6xl space-y-5 max-[359px]:-mx-5 sm:space-y-6">
         <InvestorProfileHeader
           person={person}
           description={person.description}
+          record={record}
           crumbs={[
             { label: "Ownership", href: "/ownership" },
             { label: "Traders", href: TRADERS_PATH },
@@ -104,13 +116,16 @@ export default async function AustralianInvestorPage({ params }: Props) {
           >
             {registers.length > 0 && !annualOnly && (
               <section
+                id="voting-interests"
+                tabIndex={-1}
                 aria-label="Disclosed voting interests"
-                className="space-y-3"
+                className="scroll-mt-32 space-y-3"
               >
                 <h2 className={sectionTitle}>Disclosed voting interests</h2>
                 <p className="max-w-3xl text-sm text-muted-foreground">
-                  Includes the associates named in each notice. Voting power can
-                  also change when the issuer’s share count changes.
+                  {record
+                    ? person.description
+                    : "Includes the associates named in each notice. Voting power can also change when the issuer’s share count changes."}
                 </p>
                 <div
                   aria-hidden="true"
@@ -217,18 +232,40 @@ export default async function AustralianInvestorPage({ params }: Props) {
                     </li>
                   ))}
                 </ul>
+                {(history.length > 0 || ranks.length > 0) && (
+                  <nav
+                    aria-label="Related investor records"
+                    className="flex flex-wrap gap-x-5 text-xs"
+                  >
+                    {history.length > 0 && (
+                      <a
+                        href="#filing-history"
+                        className={`inline-flex min-h-10 items-center ${link}`}
+                      >
+                        Filing history ({history.length}) ↓
+                      </a>
+                    )}
+                    {ranks.length > 0 && (
+                      <a
+                        href="#annual-register"
+                        className={`inline-flex min-h-10 items-center ${link}`}
+                      >
+                        Annual register ↓
+                      </a>
+                    )}
+                  </nav>
+                )}
               </section>
             )}
             {ranks.length > 0 && (
               <section
+                id="annual-register"
+                tabIndex={-1}
                 aria-label="Annual shareholder ranks"
-                className="min-w-0 space-y-3"
+                className="min-w-0 scroll-mt-32 space-y-3"
               >
                 <h2 className={sectionTitle}>Annual shareholder ranks</h2>
-                <p className="text-sm text-muted-foreground">
-                  Registered accounts at the date of each annual report. Each
-                  entry retains its printed rank in the issuer’s top 20.
-                </p>
+                <AnnualRankSummary rows={ranks} />
                 <AnnualRanks rows={ranks} />
                 {annualOnly && (
                   <ul className="space-y-1 text-xs leading-relaxed text-muted-foreground">
@@ -264,7 +301,12 @@ export default async function AustralianInvestorPage({ params }: Props) {
               </section>
             )}
             {registers.length > 0 && !annualOnly && (
-              <section aria-label="Filing history" className="space-y-3">
+              <section
+                id="filing-history"
+                tabIndex={-1}
+                aria-label="Filing history"
+                className="scroll-mt-32 space-y-3"
+              >
                 <h2 className={sectionTitle}>Filing history</h2>
                 {history.length > 0 ? (
                   <FilingHistory rows={history} />
@@ -291,8 +333,7 @@ export default async function AustralianInvestorPage({ params }: Props) {
             <aside className="min-w-0 space-y-5 lg:border-l lg:pl-5">
               <TraderPublicAccounts
                 trader={person}
-                path={investorHref(person.slug)}
-                joint={person.slug === "wesley-and-emma-maas"}
+                joint={!!person.jointNames}
               />
               <InvestorPhotoCredit slug={person.slug} />
             </aside>

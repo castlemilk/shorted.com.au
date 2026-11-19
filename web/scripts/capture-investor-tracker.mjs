@@ -1,7 +1,7 @@
 // Run against a Shorted production build connected to the public market service.
 // node scripts/capture-investor-tracker.mjs http://localhost:3000 /path/to/screenshots
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright";
 
@@ -73,6 +73,50 @@ try {
       );
     assert.equal(person.name, name);
     assert(person.image.contentUrl.endsWith(await image.getAttribute("src")));
+  }
+  async function verifyShareCard(filename) {
+    const route = new URL(page.url()).pathname;
+    const expected = route + "/opengraph-image";
+    // A client navigation can paint its new page before React replaces the old head.
+    await page.waitForFunction((pathname) => {
+      const canonical = document.querySelector('link[rel="canonical"]')?.href;
+      const images = [
+        document.querySelector('meta[property="og:image"]')?.content,
+        document.querySelector('meta[name="twitter:image"]')?.content,
+      ];
+      return (
+        canonical &&
+        new URL(canonical).pathname === pathname &&
+        images.every(
+          (url) =>
+            url && new URL(url).pathname === pathname + "/opengraph-image",
+        )
+      );
+    }, route);
+    // Link-preview crawlers read the server response without hydrating the page.
+    const crawler = await page.request.get(new URL(route, origin).href, {
+      headers: { "user-agent": "Twitterbot/1.0" },
+    });
+    assert.equal(crawler.status(), 200);
+    const html = await crawler.text();
+    const canonical = await page
+      .locator('link[rel="canonical"]')
+      .first()
+      .getAttribute("href");
+    for (const attribute of ['property="og:image"', 'name="twitter:image"']) {
+      assert(
+        html.includes(
+          `<meta ${attribute} content="${canonical}/opengraph-image"`,
+        ),
+      );
+    }
+    const response = await page.request.get(new URL(expected, origin).href);
+    assert.equal(response.status(), 200);
+    assert.match(response.headers()["content-type"], /image\/png/);
+    const png = await response.body();
+    assert.equal(png.readUInt32BE(16), 1200);
+    assert.equal(png.readUInt32BE(20), 630);
+    await writeFile(path.join(output, filename), png);
   }
   async function verifyAccountRows(accounts) {
     const groups = accounts.getByRole("list", { name: /^Public links for / });
@@ -277,7 +321,18 @@ try {
       annualBox.y + annualBox.height <= mobile.height,
     "First annual filing and its page citation must fit on the phone",
   );
+  await page.getByText("Rank 2 of 20 registered accounts").waitFor();
+  await page.getByRole("link", { name: /Joined the board.*1987/ }).waitFor();
   await shoot("annual-investor-mobile.png");
+  await verifyShareCard("annual-investor-share.png");
+  const rankedAccount = page.getByRole("link", {
+    name: /Rank 2 · HVN register/,
+  });
+  await rankedAccount.click();
+  assert.equal(new URL(page.url()).hash, "#rank-hvn-2026-08-26-2");
+  await page.reload();
+  await page.locator("tr:target").waitFor();
+  assert.match(await page.locator("tr:target").innerText(), /205,525,565/);
   await page.setViewportSize(desktop);
   await go(hub + "/gina-rinehart");
   const interests = region("Disclosed voting interests");
@@ -354,6 +409,7 @@ try {
   );
   await verifyAccountRows(region("Public accounts"));
   await shoot("manager-profile-desktop.png");
+  await verifyShareCard("manager-profile-share.png");
   await shoot("quarter-comparison-desktop.png", region("Quarterly holdings"));
   await page.setViewportSize(mobile);
   for (const width of [320, 360, mobile.width]) {
@@ -381,6 +437,29 @@ try {
     firstValue && firstValue.y + firstValue.height <= mobile.height,
     "First US position value below phone viewport",
   );
+  const previousPositions = page
+    .getByRole("link", { name: /previous-only positions? ↓/ })
+    .first();
+  if (await previousPositions.count()) {
+    await previousPositions.focus();
+    await page.keyboard.press("Enter");
+    const target = page.locator("div:target");
+    await target.getByRole("table").waitFor();
+    assert.equal(
+      await target.evaluate((el) => el.closest("details").open),
+      true,
+    );
+    await page.reload();
+    await target.getByRole("table").waitFor();
+    await shoot("previous-only-mobile.png", target);
+    await target
+      .getByRole("link", { name: /Back to current positions/ })
+      .click();
+    await page
+      .locator("div:target")
+      .getByRole("table", { name: /positions reported for/i })
+      .waitFor();
+  }
   await go("/ownership/traders");
   await page
     .getByRole("link", { name: /Michael Burry/ })
@@ -402,6 +481,20 @@ try {
   await shoot("scion-holdings-mobile.png");
   await go(hub + "/wesley-and-emma-maas");
   await page.getByRole("heading", { name: "Wesley and Emma Maas" }).waitFor();
+  const jointAbout = await page
+    .locator('script[type="application/ld+json"]')
+    .evaluateAll(
+      (nodes) =>
+        nodes
+          .map((el) => JSON.parse(el.textContent))
+          .find((data) => data["@type"] === "CollectionPage")?.about,
+    );
+  assert.deepEqual(
+    jointAbout.map((p) => p.name),
+    ["Wesley Jon Maas", "Emma Margaret Maas"],
+  );
+  await page.setViewportSize(desktop);
+  await shoot("joint-register-desktop.png", region("Annual shareholder ranks"));
   assert.equal(
     await page.getByRole("img", { name: /^Portrait of/ }).count(),
     0,
@@ -491,7 +584,10 @@ try {
       );
     }
     if (width === 1024) {
-      await shoot("manager-notices-tablet.png", page.locator("#recent-holder-notices"));
+      await shoot(
+        "manager-notices-tablet.png",
+        page.locator("#recent-holder-notices"),
+      );
     }
   }
   await page.setViewportSize(mobile);

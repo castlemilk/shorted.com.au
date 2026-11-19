@@ -1,0 +1,96 @@
+import { ImageResponse } from "next/og";
+import { OgCard, OG_SIZE, getOgLogo } from "~/@/lib/og/card";
+import {
+  investorCodes,
+  investorPct,
+  ranksForInvestor,
+  type AustralianInvestor,
+} from "~/@/lib/ownership/australian-investors";
+import type { TraderProfile } from "~/@/lib/ownership/traders";
+import { getSecHoldings } from "./get-sec-holdings";
+import { displayRecordDate, professionalRecord } from "./profile-metadata";
+
+export async function investorShareCard(
+  person: AustralianInvestor | TraderProfile,
+) {
+  const logoSrc = await getOgLogo();
+  const record = professionalRecord(person);
+  const subtitle = record
+    ? `${record.role} · ${record.organization}`
+    : "description" in person
+      ? person.description
+      : person.firm;
+  let footer = record?.sourceLabel ?? "ASX shareholder disclosures";
+  let eyebrow = "Australian investor";
+  let stats: { label: string; value: string }[] = [];
+
+  if ("reporting" in person) {
+    if (person.reporting.market === "US") {
+      eyebrow = "SEC holdings report";
+      const data = await getSecHoldings(person.reporting.cik);
+      const latest = data.periods[0];
+      const report = latest?.snapshot;
+      if (latest) {
+        footer = `SEC · quarter ended ${displayRecordDate(latest.filings[0]!.period)}`;
+        if (report)
+          stats = [
+            {
+              label: "value on filing cover",
+              value: `US$${report.totalUsd.toLocaleString("en-AU")}`,
+            },
+            { label: "entries filed", value: String(report.positions.length) },
+          ];
+      }
+    } else {
+      eyebrow = "ASX reporting manager";
+      stats = [
+        {
+          label: person.milestone.label,
+          value: displayRecordDate(person.milestone.date),
+        },
+      ];
+    }
+  } else {
+    const ranks = ranksForInvestor(person.slug);
+    const first = ranks[0];
+    // Show rank and percentage only when a single printed account supports them.
+    if (first && ranks.every((r) => r.source === first.source)) {
+      eyebrow = "ASX shareholder register";
+      footer = `${first.code} · ${displayRecordDate(first.date)} · annual report p. ${first.page}`;
+      stats =
+        ranks.length === 1
+          ? [
+              { label: "printed rank", value: `#${first.rank} of 20` },
+              {
+                label: `share of ${first.code}`,
+                value: investorPct(first.pct),
+              },
+            ]
+          : [
+              { label: "registered accounts", value: String(ranks.length) },
+              {
+                label: "printed ranks",
+                value: ranks.map((r) => r.rank).join(", "),
+              },
+            ];
+    } else {
+      stats = [
+        { label: "issuer registers", value: investorCodes(person).join(" · ") },
+      ];
+      footer = "Named ASX shareholder disclosures";
+    }
+  }
+  return new ImageResponse(
+    (
+      <OgCard
+        logoSrc={logoSrc}
+        title={person.name}
+        eyebrow={eyebrow}
+        subtitle={subtitle}
+        stats={stats}
+        footer={footer}
+      />
+    ),
+    OG_SIZE,
+  );
+}
