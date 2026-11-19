@@ -6,11 +6,15 @@ import { MovementLabel, VotingRange } from "./filing-movement";
 export function FilingHistory({ rows }: { rows: DisclosureRow[] }) {
   return (
     <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">
-        Each line compares the previous and reported voting power in one filing
-        on a 0–100% scale. Changes are in percentage points (pp).
-      </p>
-      <ul className="divide-y border-y">
+      <div
+        aria-hidden="true"
+        className="hidden grid-cols-[minmax(10rem,1fr)_minmax(10rem,1fr)_minmax(7rem,auto)] gap-x-4 border-t bg-muted/40 py-2 text-xs text-muted-foreground sm:grid"
+      >
+        <span>Release / source</span>
+        <span>Previous → reported voting power</span>
+        <span className="text-right">Change</span>
+      </div>
+      <ul className="!mt-0 divide-y border-y">
         {rows.map((r) => (
           <li
             key={filingId(r)}
@@ -50,6 +54,10 @@ export function FilingHistory({ rows }: { rows: DisclosureRow[] }) {
           </li>
         ))}
       </ul>
+      <p className="text-xs text-muted-foreground">
+        Open dots mark previous voting power and solid dots mark reported voting
+        power on a 0–100% scale. Changes are in percentage points (pp).
+      </p>
     </div>
   );
 }

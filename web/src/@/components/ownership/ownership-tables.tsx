@@ -113,7 +113,7 @@ export function SubstantialHoldingsTable({
   caption: string;
 }) {
   return (
-    <Table>
+    <Table className="max-sm:text-xs max-sm:[&_td]:px-1 max-sm:[&_td]:py-3 max-sm:[&_th]:px-1">
       <caption className="sr-only">{caption}</caption>
       <TableHeader>
         <TableRow>
@@ -122,8 +122,8 @@ export function SubstantialHoldingsTable({
           <TableHead className="text-right">Change</TableHead>
           <TableHead>As at</TableHead>
           <TableHead className="hidden md:table-cell">Notice</TableHead>
-          <TableHead>
-            <span className="sr-only">Document</span>
+          <TableHead className="text-right">
+            <span className="sm:sr-only">Source</span>
           </TableHead>
         </TableRow>
       </TableHeader>
@@ -137,10 +137,10 @@ export function SubstantialHoldingsTable({
               ) : null}
             </TableCell>
             <TableCell className="text-right tabular-nums">{p.votingPower}</TableCell>
-            <TableCell className="text-right tabular-nums">{p.change}</TableCell>
+            <TableCell className="whitespace-nowrap text-right tabular-nums">{p.change}</TableCell>
             <TableCell className="whitespace-nowrap tabular-nums">{p.asAt}</TableCell>
             <TableCell className="hidden md:table-cell">{p.form}</TableCell>
-            <TableCell>
+            <TableCell className="text-right">
               <AsxLink url={p.url} label={`${holder}'s ${p.code} notice on ASX`} />
             </TableCell>
           </TableRow>

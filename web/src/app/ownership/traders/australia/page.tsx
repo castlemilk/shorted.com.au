@@ -4,7 +4,8 @@ import { AustralianInvestorDirectory } from "~/@/components/ownership/traders/au
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { AUSTRALIAN_INVESTORS_PATH } from "~/@/lib/ownership/australian-investors";
 import { TRADERS_PATH } from "~/@/lib/ownership/traders";
-import { lede, pageTitle } from "~/@/lib/typography";
+import { pageTitle } from "~/@/lib/typography";
+import { formatIsoDate } from "~/@/lib/strategies/format";
 import { getInvestorDiscovery } from "~/app/actions/australianInvestors";
 import { bailOnEmptyRender } from "~/app/actions/config";
 
@@ -23,7 +24,7 @@ export default async function AustralianInvestorsPage() {
   if (feed.status !== "complete") await bailOnEmptyRender();
   return (
     <DashboardLayout>
-      <div className="mx-auto min-w-0 max-w-6xl space-y-7">
+      <div className="mx-auto min-w-0 max-w-6xl space-y-4 sm:space-y-5">
         <Breadcrumbs
           items={[
             { label: "Ownership", href: "/ownership" },
@@ -32,13 +33,25 @@ export default async function AustralianInvestorsPage() {
           ]}
           prefetch={false}
         />
-        <header>
-          <h1 className={pageTitle}>Australian investor tracker</h1>
-          <p className={lede}>
-            Find people through the ASX companies they hold. Explore voting
-            interests from substantial holding notices and named shareholders in
-            annual top-20 registers.
-          </p>
+        <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-2">
+          <div>
+            <h1 className={pageTitle}>Australian investor tracker</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              ASX substantial holding notices and annual top-20 shareholder
+              registers.
+            </p>
+          </div>
+          {feed.asOf && (
+            <p className="text-xs text-muted-foreground sm:text-right">
+              Filings through{" "}
+              <time
+                className="text-foreground sm:mt-0.5 sm:block sm:text-sm"
+                dateTime={feed.asOf}
+              >
+                {formatIsoDate(feed.asOf)}
+              </time>
+            </p>
+          )}
         </header>
         {feed.status !== "complete" && <span data-isr-shell="empty" hidden />}
         <AustralianInvestorDirectory feed={feed} />

@@ -1,6 +1,6 @@
 import { JsonLd } from "~/@/components/seo/json-ld";
 import { traderHref, type TraderProfile } from "~/@/lib/ownership/traders";
-import { eyebrow } from "~/@/lib/typography";
+import { sectionTitle } from "~/@/lib/typography";
 import { publicAccounts } from "~/server/traders/public-accounts";
 
 const checkedDate = new Intl.DateTimeFormat("en-AU", {
@@ -35,6 +35,21 @@ export function TraderPublicAccounts({
       ? [{ name: `Co-hosted · ${coHosted.name}`, accounts: coHosted.accounts }]
       : []),
   ];
+  const sources = new Map<string, { title: string; attributions: string[] }>();
+  for (const group of groups) {
+    for (const { platform, source } of group.accounts) {
+      const attribution = `${group.name} · ${platform}`;
+      const existing = sources.get(source.url);
+      if (existing) {
+        existing.attributions.push(attribution);
+      } else {
+        sources.set(source.url, {
+          title: source.title,
+          attributions: [attribution],
+        });
+      }
+    }
+  }
   const url = `https://shorted.com.au${path}`;
   return (
     <section
@@ -68,7 +83,7 @@ export function TraderPublicAccounts({
           }}
         />
       )}
-      <h2 id="public-accounts-title" className={eyebrow}>
+      <h2 id="public-accounts-title" className={sectionTitle}>
         Public accounts
       </h2>
       <dl className="space-y-3 text-sm">
@@ -110,18 +125,16 @@ export function TraderPublicAccounts({
             </time>
           </p>
           <ul className="mt-2 space-y-2">
-            {groups.flatMap((group) =>
-              group.accounts.map((a) => (
-                <li key={a.url}>
-                  <span className="block">
-                    {group.name} · {a.platform}
-                  </span>
-                  <a className={link} href={a.source.url}>
-                    {a.source.title}
-                  </a>
-                </li>
-              )),
-            )}
+            {Array.from(sources, ([href, source]) => (
+              <li key={href}>
+                <a className={link} href={href}>
+                  {source.title}
+                </a>
+                <span className="mt-0.5 block">
+                  {source.attributions.join(" / ")}
+                </span>
+              </li>
+            ))}
           </ul>
         </details>
       )}

@@ -105,13 +105,12 @@ export function InvestorWatchlist({
     );
   });
   return (
-    <section aria-label="Following" className="space-y-5">
+    <section aria-label="Following" className="space-y-3">
       <header className="space-y-1">
         <h2 className={sectionTitle}>Following</h2>
         <p className="max-w-3xl text-sm text-muted-foreground">
-          Releases for your saved names across their ASX issuers. Changes are in
-          percentage points (pp). Follows and read status are saved in this
-          browser.
+          ASX filings for your saved names. Changes are in percentage points
+          (pp).
         </p>
       </header>
       {!followed.length ? (
@@ -139,7 +138,7 @@ export function InvestorWatchlist({
       ) : (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm" role="status">
+            <p className="text-xs text-muted-foreground" role="status">
               {filtered.length} matching{" "}
               {filtered.length === 1 ? "filing" : "filings"} ·{" "}
               {available.length} of {codes.length} issuer{" "}
@@ -215,6 +214,9 @@ export function InvestorWatchlist({
           )}
           <div className="space-y-2">
             <h3 className="font-semibold">Saved investors and filers</h3>
+            <p className="text-xs text-muted-foreground">
+              Follows and read status are saved in this browser.
+            </p>
             {!saved.length && (
               <p className="text-sm text-muted-foreground">
                 No saved names match this search.

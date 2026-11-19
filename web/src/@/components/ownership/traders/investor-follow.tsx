@@ -148,7 +148,7 @@ export function FollowInvestor(
         aria-label={`Follow ${name}`}
         aria-pressed={followed}
         onClick={toggle}
-        className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted aria-pressed:border-primary aria-pressed:text-primary"
+        className="min-h-9 rounded-md border px-3 py-1.5 text-xs hover:bg-muted aria-pressed:border-primary aria-pressed:text-primary"
       >
         {followed ? "Following" : "Follow"}
       </button>

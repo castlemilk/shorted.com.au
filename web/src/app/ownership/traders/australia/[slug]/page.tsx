@@ -62,7 +62,7 @@ export default async function AustralianInvestorPage({ params }: Props) {
   const ranks = ranksForInvestor(person.slug);
   return (
     <DashboardLayout>
-      <div className="mx-auto min-w-0 max-w-6xl space-y-8">
+      <div className="mx-auto min-w-0 max-w-6xl space-y-5 sm:space-y-6">
         <Breadcrumbs
           items={[
             { label: "Ownership", href: "/ownership" },
@@ -86,17 +86,24 @@ export default async function AustralianInvestorPage({ params }: Props) {
           >
             <h2 className={sectionTitle}>Disclosed voting interests</h2>
             <p className="max-w-3xl text-sm text-muted-foreground">
-              Each percentage belongs to the filer and associates identified in
-              that notice. A change in voting power can also follow a change in
-              the company’s shares on issue.
+              Includes the associates named in each notice. Voting power can
+              also change when the issuer’s share count changes.
             </p>
-            <ul className="divide-y border-y">
+            <div
+              aria-hidden="true"
+              className="hidden grid-cols-[minmax(0,1.8fr)_minmax(9rem,0.65fr)_minmax(12rem,0.8fr)] gap-x-5 border-t bg-muted/40 py-2 text-xs text-muted-foreground md:grid"
+            >
+              <span>Issuer / filed name</span>
+              <span className="text-right">Reported voting power</span>
+              <span className="pl-4">Latest source</span>
+            </div>
+            <ul className="!mt-0 divide-y border-y">
               {registers.map(({ filing, company, asOf, current }) => (
                 <li
                   key={filing.code}
-                  className="grid gap-2 py-4 sm:grid-cols-[1fr_auto]"
+                  className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-5 gap-y-2 py-3.5 md:grid-cols-[minmax(0,1.8fr)_minmax(9rem,0.65fr)_minmax(12rem,0.8fr)]"
                 >
-                  <div>
+                  <div className="min-w-0 max-md:col-span-2">
                     <Link
                       href={registerHref(filing.code)}
                       prefetch={false}
@@ -105,7 +112,7 @@ export default async function AustralianInvestorPage({ params }: Props) {
                       {filing.code}
                       {company && ` · ${company}`}
                     </Link>
-                    <p className="mt-1 text-sm">
+                    <p className="my-0.5 break-words text-xs text-muted-foreground">
                       {current?.name ?? filing.filedName}
                     </p>
                     <a href={filing.source} className={`text-xs ${link}`}>
@@ -114,29 +121,20 @@ export default async function AustralianInvestorPage({ params }: Props) {
                         : "Filing establishing this link"}
                     </a>
                   </div>
-                  <div className="text-sm sm:text-right">
+                  <div className="text-sm md:text-right">
                     {current ? (
                       <>
-                        <p className="font-semibold tabular-nums">
+                        <span className="block text-xs text-muted-foreground md:hidden">
+                          Reported voting power
+                        </span>
+                        <p className="text-xl font-semibold leading-tight tabular-nums">
                           {investorPct(current.pct)}
                         </p>
                         {current.votes && (
-                          <p className="text-xs text-muted-foreground">
+                          <p className="mt-1 text-xs text-muted-foreground">
                             {current.votes} votes
                           </p>
                         )}
-                        <p>
-                          Filed {current.date}
-                          {current.source && (
-                            <>
-                              {" "}
-                              ·{" "}
-                              <a className={link} href={current.source}>
-                                Notice
-                              </a>
-                            </>
-                          )}
-                        </p>
                       </>
                     ) : (
                       <p>
@@ -145,8 +143,25 @@ export default async function AustralianInvestorPage({ params }: Props) {
                           : "Company register temporarily unavailable."}
                       </p>
                     )}
+                  </div>
+                  <div className="text-xs md:border-l md:pl-4">
+                    {current && (
+                      <p>
+                        Filed{" "}
+                        <time dateTime={current.date}>{current.date}</time>
+                        {current.source && (
+                          <>
+                            {" "}
+                            ·{" "}
+                            <a className={link} href={current.source}>
+                              Notice
+                            </a>
+                          </>
+                        )}
+                      </p>
+                    )}
                     {asOf && (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="mt-1 text-muted-foreground">
                         Register read to {asOf}
                       </p>
                     )}

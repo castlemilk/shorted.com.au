@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useFocusClearance } from "~/@/hooks/use-focus-clearance";
 import { cn } from "~/@/lib/utils";
 
@@ -63,6 +63,28 @@ export function WorkspaceSubNav<Id extends string>({
   const router = useRouter();
   const prefetched = useRef<Set<string>>(new Set());
   const navRef = useRef<HTMLElement>(null);
+  const tabList = useRef<HTMLUListElement>(null);
+  const activeLink = useRef<HTMLAnchorElement>(null);
+
+  useEffect(() => {
+    const list = tabList.current;
+    const link = activeLink.current;
+    if (!list || !link) return;
+    const revealActive = () => {
+      const viewport = list.getBoundingClientRect();
+      const tab = link.getBoundingClientRect();
+      if (tab.left < viewport.left || tab.right > viewport.right) {
+        // Scroll only the strip, preserving the reader's place on the page.
+        list.scrollLeft += tab.left - viewport.left - (viewport.width - tab.width) / 2;
+      }
+    };
+    revealActive();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(revealActive);
+    observer.observe(list);
+    observer.observe(link);
+    return () => observer.disconnect();
+  }, [activeTab]);
 
   const warm = (href: string, isActive: boolean) => {
     if (isActive || prefetched.current.has(href)) return;
@@ -80,14 +102,15 @@ export function WorkspaceSubNav<Id extends string>({
       aria-label={label ?? group}
       className={cn(sticky && "sticky top-16 z-30", "border-b border-border bg-background/95 backdrop-blur")}
     >
-      <div className="mx-auto flex max-w-[1400px] items-center gap-6 overflow-x-auto px-4 sm:px-8">
+      <div className="mx-auto flex max-w-[1400px] items-center gap-3 px-4 sm:gap-6 sm:px-8">
         <p className="shrink-0 py-3 font-mono text-xs uppercase tracking-[0.16em] text-muted-foreground">{group}</p>
-        <ul className="flex shrink-0 items-center gap-1">
+        <ul ref={tabList} className="flex min-w-0 items-center gap-1 overflow-x-auto max-sm:[mask-image:linear-gradient(to_right,transparent,black_14px,black_calc(100%-14px),transparent)]">
           {tabs.map((tab) => {
             const isActive = tab.id === activeTab;
             return (
-              <li key={tab.id}>
+              <li key={tab.id} className="shrink-0 max-sm:first:pl-3 max-sm:last:pr-3">
                 <Link
+                  ref={isActive ? activeLink : undefined}
                   href={tab.href}
                   prefetch={false}
                   scroll
@@ -96,7 +119,7 @@ export function WorkspaceSubNav<Id extends string>({
                   onTouchStart={() => warm(tab.href, isActive)}
                   onFocus={() => warm(tab.href, isActive)}
                   className={cn(
-                    "-mb-px inline-flex items-center border-b-2 px-2 py-3 font-mono text-sm transition-colors",
+                    "inline-flex items-center border-b-2 px-2 py-3 font-mono text-sm transition-colors",
                     isActive
                       ? "border-primary text-foreground"
                       : "border-transparent text-muted-foreground hover:text-foreground",
