@@ -147,7 +147,7 @@ function SocialLink({
   );
 }
 
-const SiteFooter = () => {
+const SiteFooter = ({ copyrightYear }: { copyrightYear: number }) => {
   const version = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
   const gitCommit = process.env.NEXT_PUBLIC_GIT_COMMIT;
   const gitBranch = process.env.NEXT_PUBLIC_GIT_BRANCH;
@@ -289,7 +289,7 @@ const SiteFooter = () => {
               {version}
             </Badge>
             <p className="whitespace-nowrap">
-              &copy; {new Date().getFullYear()} {siteConfig.name}
+              &copy; {copyrightYear} {siteConfig.name}
             </p>
           </div>
         </div>

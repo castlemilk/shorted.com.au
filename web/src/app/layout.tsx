@@ -74,6 +74,14 @@ const fontSerif = localFont({
 
 export const metadata = {
   metadataBase: new URL(siteConfig.url),
+  // iOS Safari can otherwise insert links into dates and numbers before React
+  // hydrates, changing the server-rendered HTML beneath it.
+  formatDetection: {
+    telephone: false,
+    date: false,
+    email: false,
+    address: false,
+  },
   title: {
     default: siteConfig.fullTitle,
     template: `%s | ${siteConfig.name}`,
@@ -281,7 +289,8 @@ export default function RootLayout({
               <PastDueBanner />
               <ConditionalHeader />
               {children}
-              <ConditionalFooter />
+              {/* Snapshot the year with the HTML so hydration does not depend on the visitor's clock. */}
+              <ConditionalFooter copyrightYear={new Date().getFullYear()} />
               <ThemeSwitcher />
               <Toaster />
               <WebVitalsReporter />
