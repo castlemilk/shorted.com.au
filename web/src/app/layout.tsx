@@ -74,6 +74,14 @@ const fontSerif = localFont({
 
 export const metadata = {
   metadataBase: new URL(siteConfig.url),
+  // iOS Safari can otherwise insert links into dates and numbers before React
+  // hydrates, changing the server-rendered HTML beneath it.
+  formatDetection: {
+    telephone: false,
+    date: false,
+    email: false,
+    address: false,
+  },
   title: {
     default: siteConfig.fullTitle,
     template: `%s | ${siteConfig.name}`,
