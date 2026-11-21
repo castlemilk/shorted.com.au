@@ -4,9 +4,9 @@ import { serializeJsonLd } from "~/@/lib/seo/json-ld";
 // This is a public site identifier, not a Flaggr API credential. The pinned
 // script and its SRI hash come from https://cdn.flaggr.dev/manifest.json.
 const FLAGGR_SITE_ID = "site_869df5560db33f777d73f0f9";
-const FLAGGR_SCRIPT = "https://cdn.flaggr.dev/a-0.1.11.js";
+const FLAGGR_SCRIPT = "https://cdn.flaggr.dev/a-0.1.12.js";
 const FLAGGR_INTEGRITY =
-  "sha384-DEhTV0Cu1DFoo3I77UdD/JWTUk4e2P5vG5OTxFUtVDBZYD3ZWwu6LBo4Tt3KdaL4";
+  "sha384-Zq2OWRharqBODMQTX1ThbspigtLQtfkoBV7CaHvwWz6Alp1/ozsXDgD5Ks6TE14B";
 const FLAGGR_CONFIG = serializeJsonLd({
   hosts: PRODUCTION_ANALYTICS_HOSTS,
   integrity: FLAGGR_INTEGRITY,
