@@ -56,4 +56,21 @@ describe("/data Dataset JSON-LD", () => {
     const json = await pageDataset();
     expect(json).not.toHaveProperty("dateModified");
   });
+
+  it("links to browsable pages and does not describe RPC URLs or HTML as JSON downloads", async () => {
+    mockTopShorts.mockResolvedValue({ timeSeries: [] });
+    const { container, getAllByRole } = render(await DataHubPage());
+    const browseLinks = getAllByRole("link", { name: "Explore data" });
+    expect(browseLinks.map((link) => link.getAttribute("href"))).toEqual([
+      "/top", "/shorts/BHP", "/treemap", "/shorts/BHP", "/insider-trading",
+    ]);
+    const docs = getAllByRole("link", { name: "API documentation" });
+    expect(docs).toHaveLength(5);
+    expect(docs.every((link) => link.getAttribute("href") === "/docs/api")).toBe(true);
+    const datasets = Array.from(container.querySelectorAll('script[type="application/ld+json"]'))
+      .map((script) => JSON.parse(script.innerHTML) as Record<string, unknown>)
+      .filter((json) => json["@type"] === "Dataset");
+    expect(datasets).toHaveLength(6);
+    expect(datasets.every((dataset) => !("distribution" in dataset))).toBe(true);
+  });
 });
