@@ -1,5 +1,7 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import { useSession } from "next-auth/react";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 
 import SiteFooter from "../site-footer";
 
@@ -11,6 +13,31 @@ const mockUseSession = useSession as jest.Mock;
 const footerLink = (href: string) =>
   screen.getAllByRole("link").find((link) => link.getAttribute("href") === href);
 
+it("hydrates the server's copyright year even when the browser clock has moved on", async () => {
+  mockUseSession.mockReturnValue({ data: null, status: "unauthenticated" });
+  const year = jest.spyOn(Date.prototype, "getFullYear").mockReturnValue(2026);
+  const host = document.createElement("div");
+  host.innerHTML = renderToString(<SiteFooter copyrightYear={2026} />);
+  document.body.appendChild(host);
+  year.mockReturnValue(2027);
+  const recoverableErrors: unknown[] = [];
+  let root: ReturnType<typeof hydrateRoot> | undefined;
+  try {
+    await act(async () => {
+      root = hydrateRoot(host, <SiteFooter copyrightYear={2026} />, {
+        onRecoverableError: (error) => recoverableErrors.push(error),
+      });
+    });
+    expect(recoverableErrors).toEqual([]);
+    expect(host.textContent).toContain("© 2026 Shorted");
+  } finally {
+    if (root) await act(async () => root?.unmount());
+    host.remove();
+    year.mockRestore();
+    mockUseSession.mockReset();
+  }
+});
+
 // Signed out, /dashboards and /portfolio 307 to the noindexed /signin, and the
 // footer linked them, followable, from 46 of the 47 pages probed on 2026-10-21.
 // SSR has no session, so the signed-out render is the one crawlers read.
@@ -19,7 +46,7 @@ describe("SiteFooter auth-only links", () => {
 
   it("marks the auth-only links nofollow for a signed-out visitor", () => {
     mockUseSession.mockReturnValue({ data: null, status: "unauthenticated" });
-    render(<SiteFooter />);
+    render(<SiteFooter copyrightYear={2026} />);
 
     for (const href of ["/dashboards", "/portfolio"]) {
       expect(footerLink(href)).toHaveAttribute("rel", "nofollow");
@@ -35,7 +62,7 @@ describe("SiteFooter auth-only links", () => {
       data: { user: { id: "u1" } },
       status: "authenticated",
     });
-    render(<SiteFooter />);
+    render(<SiteFooter copyrightYear={2026} />);
 
     expect(footerLink("/dashboards")).not.toHaveAttribute("rel");
     expect(footerLink("/portfolio")).not.toHaveAttribute("rel");
@@ -49,7 +76,7 @@ describe("SiteFooter socials", () => {
   afterEach(() => mockUseSession.mockReset());
 
   it("links the founder's LinkedIn, X, blog and GitHub as named profiles", () => {
-    render(<SiteFooter />);
+    render(<SiteFooter copyrightYear={2026} />);
 
     const founder = screen.getByRole("list", { name: "Ben Ebsworth on the web" });
     const links = within(founder).getAllByRole("link");
@@ -72,7 +99,7 @@ describe("SiteFooter socials", () => {
   });
 
   it("links Shorted's X account and the RSS feed", () => {
-    render(<SiteFooter />);
+    render(<SiteFooter copyrightYear={2026} />);
 
     const brand = screen.getByRole("list", { name: "Shorted on the web" });
     expect(
@@ -84,7 +111,7 @@ describe("SiteFooter socials", () => {
   });
 
   it("names the founder's site from the credit line", () => {
-    render(<SiteFooter />);
+    render(<SiteFooter copyrightYear={2026} />);
     expect(screen.getByRole("link", { name: "Ben Ebsworth" })).toHaveAttribute(
       "href",
       "https://benebsworth.com",

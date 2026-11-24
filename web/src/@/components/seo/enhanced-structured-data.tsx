@@ -122,11 +122,6 @@ export function DatasetStructuredData({
       "ASIC regulatory data",
     ],
     license: "https://asic.gov.au/about-asic/asic-data/",
-    distribution: {
-      "@type": "DataDownload",
-      contentUrl: pageUrl,
-      encodingFormat: "JSON",
-    },
     temporalCoverage: "2010-01-01/..",
     spatialCoverage: {
       "@type": "Place",

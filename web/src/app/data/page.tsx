@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   // No brand: the root layout's `%s | Shorted` template appends it.
   title: "ASX Short Selling Datasets: Open Data Hub",
   description:
-    "Download every ASIC short position, 2010 → today. Open ASX short selling datasets with programmatic API endpoints and Dataset schema for Google Dataset Search. Free for research, journalism, and analysis.",
+    "Explore ASX short selling datasets from 2010 onwards, with programmatic API access for research, journalism, and analysis.",
   keywords: [
     "ASX dataset",
     "short selling data",
@@ -60,7 +60,7 @@ interface DatasetEntry {
   slug: string;
   name: string;
   description: string;
-  apiEndpoint: string;
+  browseHref: string;
   rpcName: string;
   temporalCoverage: string;
   keywords: string[];
@@ -74,7 +74,7 @@ const DATASETS: DatasetEntry[] = [
     name: "Top Shorted ASX Stocks",
     description:
       "Daily-updated rankings of the most shorted stocks on the Australian Securities Exchange, with current short interest percentage and historical time series. Sourced from official ASIC short position reports.",
-    apiEndpoint: `${siteConfig.url}/shorts.v1alpha1.ShortedStocksService/GetTopShorts`,
+    browseHref: "/top",
     rpcName: "GetTopShorts",
     temporalCoverage: "2010-06-01/..",
     keywords: [
@@ -95,7 +95,7 @@ const DATASETS: DatasetEntry[] = [
     name: "Historical ASX Short Positions Time Series",
     description:
       "Daily time-series of ASIC-reported short positions for each ASX-listed security from 2010 onwards. Includes percentage of shares on issue held short and absolute reported short positions.",
-    apiEndpoint: `${siteConfig.url}/shorts.v1alpha1.ShortedStocksService/GetStockData`,
+    browseHref: "/shorts/BHP",
     rpcName: "GetStockData",
     temporalCoverage: "2010-06-01/..",
     keywords: [
@@ -114,7 +114,7 @@ const DATASETS: DatasetEntry[] = [
     name: "ASX Short Positions by Industry",
     description:
       "Industry-aggregated short positions and short-interest changes across ASX sectors over user-selected periods (3m, 6m, 1y, 2y, 5y). Useful for sector-rotation analysis and macro short-selling research.",
-    apiEndpoint: `${siteConfig.url}/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap`,
+    browseHref: "/treemap",
     rpcName: "GetIndustryTreeMap",
     temporalCoverage: "2010-06-01/..",
     keywords: [
@@ -135,7 +135,7 @@ const DATASETS: DatasetEntry[] = [
     name: "ASX Historical Stock Prices",
     description:
       "Daily OHLCV (open, high, low, close, volume) historical stock prices for ASX-listed securities, used alongside short position data for correlation and event-study analysis.",
-    apiEndpoint: `${siteConfig.url}/marketdata.v1.MarketDataService/GetHistoricalPrices`,
+    browseHref: "/shorts/BHP",
     rpcName: "GetHistoricalPrices",
     temporalCoverage: "2010-01-01/..",
     keywords: [
@@ -158,7 +158,7 @@ const DATASETS: DatasetEntry[] = [
     name: "ASX Director Trades & Insider Activity",
     description:
       "Director and substantial-holder trades from ASX Appendix 3Y filings, tagged with stock code, trade type (buy/sell/exercise), share count and disclosed price. Useful for insider-sentiment research.",
-    apiEndpoint: `${siteConfig.url}/shorts.v1alpha1.ShortedStocksService/GetDirectorTrades`,
+    browseHref: "/insider-trading",
     rpcName: "GetDirectorTrades",
     temporalCoverage: "2015-01-01/..",
     keywords: [
@@ -224,14 +224,6 @@ function buildDatasetSchema(d: DatasetEntry) {
       unitText: v.unit,
       description: v.description,
     })),
-    distribution: [
-      {
-        "@type": "DataDownload",
-        contentUrl: d.apiEndpoint,
-        encodingFormat: "application/json",
-        description: `Connect-RPC endpoint: ${d.rpcName}. See API docs for request schema.`,
-      },
-    ],
   };
 }
 
@@ -279,7 +271,7 @@ export default async function DataHubPage() {
         </div>
         <div>
           <h1 className={pageTitle}>
-            Download every ASIC short position, 2010 → today
+            Explore ASX short-selling data, 2010 → today
           </h1>
           <p className="text-sm text-muted-foreground">
             Free programmatic access to every ASIC-reported short position
@@ -383,20 +375,18 @@ export default async function DataHubPage() {
 
             <div className="mt-4 flex flex-wrap gap-2">
               <Link
-                href="/docs/api-reference"
+                href={d.browseHref}
+                className="inline-flex items-center gap-1 rounded-md border bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted"
+              >
+                Explore data
+              </Link>
+              <Link
+                href="/docs/api"
                 className="inline-flex items-center gap-1 rounded-md border bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted"
               >
                 API documentation
                 <ExternalLink className="h-3 w-3" />
               </Link>
-              <a
-                href={d.apiEndpoint}
-                className="inline-flex items-center gap-1 rounded-md border bg-background px-3 py-1.5 font-mono text-[11px] hover:bg-muted"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {d.rpcName}
-              </a>
             </div>
           </article>
         ))}

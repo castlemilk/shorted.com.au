@@ -40,8 +40,8 @@ describe("Flaggr browser analytics", () => {
     const { scripts, context } = runBootstrap(hostname);
     expect(scripts).toHaveLength(1);
     const script = scripts[0]!;
-    expect(script.src).toBe("https://cdn.flaggr.dev/a-0.1.11.js");
-    expect(script.integrity).toBe("sha384-DEhTV0Cu1DFoo3I77UdD/JWTUk4e2P5vG5OTxFUtVDBZYD3ZWwu6LBo4Tt3KdaL4");
+    expect(script.src).toBe("https://cdn.flaggr.dev/a-0.1.12.js");
+    expect(script.integrity).toBe("sha384-Zq2OWRharqBODMQTX1ThbspigtLQtfkoBV7CaHvwWz6Alp1/ozsXDgD5Ks6TE14B");
     expect(script.crossOrigin).toBe("anonymous");
     expect(script.async).toBe(true);
     expect(script.getAttribute("data-site-id")).toBe("site_869df5560db33f777d73f0f9");
