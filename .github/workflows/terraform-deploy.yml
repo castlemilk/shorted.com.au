@@ -1947,7 +1947,7 @@ jobs:
       - name: Install production smoke browser
         if: ${{ success() && (steps.vercel-promote.outputs.promoted == 'true' || steps.release-check.outputs.web-current == 'true') }}
         working-directory: web
-        run: npx playwright install --with-deps chromium
+        run: node scripts/playwright.mjs install --with-deps chromium
 
       - name: Verify promoted production release
         if: ${{ success() && (steps.vercel-promote.outputs.promoted == 'true' || steps.release-check.outputs.web-current == 'true') }}

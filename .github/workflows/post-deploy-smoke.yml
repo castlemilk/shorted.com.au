@@ -157,7 +157,7 @@ jobs:
 
       - name: Install Playwright
         working-directory: web
-        run: npx playwright install --with-deps chromium
+        run: node scripts/playwright.mjs install --with-deps chromium
 
       - name: Run production release smoke
         working-directory: web

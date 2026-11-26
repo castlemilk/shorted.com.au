@@ -62,7 +62,7 @@ jobs:
       - name: Install Playwright Chromium
         if: steps.bench-guard.outputs.enabled == 'true'
         working-directory: web
-        run: npx playwright install --with-deps chromium
+        run: node scripts/playwright.mjs install --with-deps chromium
 
       - name: Run Stripe testbench
         if: steps.bench-guard.outputs.enabled == 'true'

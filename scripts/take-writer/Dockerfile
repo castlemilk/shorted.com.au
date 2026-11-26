@@ -4,7 +4,7 @@
 #   ["publish-content", "--slug=<slug>"]   (shorted-news-publish, via the admin API)
 # Env (DATABASE_URL, GEMINI_API_KEY, OPENAI_API_KEY, GCS_LOGO_BUCKET) is
 # injected by the job; GCS auth uses the job's service-account ADC.
-FROM node:24-slim
+FROM node:26.13.1-slim
 
 WORKDIR /app
 
