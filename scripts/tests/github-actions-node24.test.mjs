@@ -31,13 +31,13 @@ test("GitHub workflows use Node 24-compatible action majors", () => {
   }
 });
 
-test("GitHub workflows do not pin Node setup below 24", () => {
+test("GitHub workflows do not pin Node setup below 26", () => {
   for (const { file, source } of workflowFiles) {
-    assert.doesNotMatch(source, /node-version:\s*["']?(?:20|22)\b/, `${file} pins Node below 24`);
+    assert.doesNotMatch(source, /node-version:\s*["']?(?:18|20|22|24)\b/, `${file} pins Node below 26`);
   }
 });
 
-test("local Node version files pin Node 24", () => {
-  assert.equal(readFileSync(new URL("../../.nvmrc", import.meta.url), "utf8").trim(), "24");
-  assert.equal(readFileSync(new URL("../../.node-version", import.meta.url), "utf8").trim(), "24");
+test("local Node version files pin the same Node 26 LTS release", () => {
+  assert.equal(readFileSync(new URL("../../.nvmrc", import.meta.url), "utf8").trim(), "26.13.1");
+  assert.equal(readFileSync(new URL("../../.node-version", import.meta.url), "utf8").trim(), "26.13.1");
 });

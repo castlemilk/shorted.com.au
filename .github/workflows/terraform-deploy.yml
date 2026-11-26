@@ -16,7 +16,7 @@ on:
         default: false
 
 env:
-  NODE_VERSION: "24.22.1"
+  NODE_VERSION: "26.13.1"
   GO_VERSION: "1.27"
   PYTHON_VERSION: "3.11"
   GOWORK: "off"
@@ -1585,7 +1585,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           # Keep the actual build/upload process on the reviewed security patch.
-          node-version: "24.22.1"
+          node-version: "26.13.1"
 
       - name: Verify production build Node patch
         run: |
@@ -1596,7 +1596,7 @@ jobs:
         timeout-minutes: 5
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: npm exec --yes --ignore-scripts --package=vercel@54.10.2 -- node scripts/vercel-release.mjs preflight
+        run: npm exec --yes --ignore-scripts --package=vercel@65.8.0 -- node scripts/vercel-release.mjs preflight
 
       # Decide before any cloud lookup or build whether production still needs
       # this commit. A production that already serves a descendant skips the
@@ -1802,7 +1802,7 @@ jobs:
           npm --prefix web ci
           # Real project pull, after install. The access probe in preflight used
           # a throwaway directory, so the link and env file first appear here.
-          npx -p vercel@54.10.2 vercel pull --yes --environment production \
+          npx -p vercel@65.8.0 vercel pull --yes --environment production \
             --project shorted-com-au --scope document-analyser --non-interactive
           npm --prefix web run firebase:preflight
           npm --prefix web run stripe:preflight
@@ -1810,7 +1810,7 @@ jobs:
           # This ID is baked into both Next's assets and Vercel's prebuilt
           # output. A fresh build (including a retry) must use a fresh ID.
           export NEXT_DEPLOYMENT_ID="$(node scripts/vercel-deployment-identity.mjs new)"
-          npx -p vercel@54.10.2 vercel build \
+          npx -p vercel@65.8.0 vercel build \
             --yes \
             --target production \
             --scope document-analyser \
@@ -1821,7 +1821,7 @@ jobs:
 
           # One upload attempt. An interrupted response may already have created
           # a deployment: reconcile it before attempting another upload.
-          npx -p vercel@54.10.2 vercel deploy --prebuilt "${deploy_args[@]}" > "$RUNNER_TEMP/vercel-production.json"
+          npx -p vercel@65.8.0 vercel deploy --prebuilt "${deploy_args[@]}" > "$RUNNER_TEMP/vercel-production.json"
           node scripts/vercel-release.mjs record "$RUNNER_TEMP/vercel-production.json"
 
       - name: Promote Vercel deployment to production
@@ -1845,7 +1845,7 @@ jobs:
           fi
           [ "$gate" -eq 0 ] || exit "$gate"
           node scripts/vercel-release.mjs verify-deployment
-          npx -p vercel@54.10.2 vercel promote "$DEPLOYMENT_URL" \
+          npx -p vercel@65.8.0 vercel promote "$DEPLOYMENT_URL" \
             --scope document-analyser \
             --yes \
             --non-interactive
@@ -2002,7 +2002,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
-          node-version: "24.22.1"
+          node-version: "26.13.1"
 
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
@@ -2190,7 +2190,7 @@ jobs:
       - name: Set up Node for workflow pins
         uses: actions/setup-node@v5
         with:
-          node-version: "24.22.1"
+          node-version: "26.13.1"
 
       - name: Install root packages for workflow pins
         run: npm ci --ignore-scripts --no-audit --no-fund

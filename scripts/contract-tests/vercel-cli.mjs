@@ -1,4 +1,4 @@
-// Run via: npm exec --yes --ignore-scripts --package=vercel@54.10.2 -- node scripts/contract-tests/vercel-cli.mjs
+// Run via: npm exec --yes --ignore-scripts --package=vercel@65.8.0 -- node scripts/contract-tests/vercel-cli.mjs
 // The actual CLI runs against a loopback fake API. No account credentials or production APIs are used.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -36,7 +36,7 @@ const project = {
   accountId: team.id,
   framework: null,
   rootDirectory: null,
-  nodeVersion: "24.x",
+  nodeVersion: "26.x",
 };
 let deployment = {
   id: "dpl_fixture",
@@ -80,7 +80,7 @@ const server = createServer(async (req, res) => {
   if (url.pathname === "/v2/user")
     response = {
       user: {
-        uid: "fixture_user",
+        id: "fixture_user",
         username: "fixture",
         email: "fixture@example.invalid",
       },
@@ -175,7 +175,7 @@ try {
     child.stdout.on("data", (chunk) => (stdout += chunk));
     child.stderr.on("data", (chunk) => (stderr += chunk));
     const timer = setTimeout(() => child.kill("SIGKILL"), 20_000);
-    const status = await new Promise((resolve) => child.on("exit", resolve));
+    const status = await new Promise((resolve) => child.once("close", resolve));
     clearTimeout(timer);
     return { status, stdout, stderr };
   }
@@ -236,7 +236,7 @@ try {
   ).length;
   const challenged = await run(pullArgs);
   assert.equal(challenged.status, 1);
-  assert.match(challenged.stderr, /Challenge required/);
+  assert.match(`${challenged.stdout}\n${challenged.stderr}`, /challenge[ _]required/i);
   assert.equal(
     requests.filter((req) => req.path.includes("/env/pull/")).length -
       countBefore,

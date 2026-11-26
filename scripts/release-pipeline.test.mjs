@@ -53,7 +53,7 @@ test("both prebuilt release paths generate and verify the deployment identity be
   const production = workflow.slice(workflow.indexOf("- name: Build and upload production deployment"));
   const local = read("scripts/release-web.sh");
   for (const [name, script, build, upload] of [
-    ["CI", production, "vercel@54.10.2 vercel build", "vercel deploy --prebuilt"],
+    ["CI", production, "vercel@65.8.0 vercel build", "vercel deploy --prebuilt"],
     ["local", local, "vercel build", "vercel deploy"],
   ]) {
     const generate = script.indexOf("scripts/vercel-deployment-identity.mjs\" new");
@@ -99,7 +99,7 @@ test("post-deploy smoke uses trusted-test headers and full production release sm
   assert.match(workflow, /\[\s*"\$status"\s*-ge 400\s*\]/);
   assert.doesNotMatch(workflow, /\[\s*"\$status"\s*-ge 500\s*\]/);
   assert.match(workflow, /actions\/checkout@v5/);
-  assert.match(workflow, /node-version:\s*"24"/);
+  assert.match(workflow, /node-version:\s*"26\.13\.1"/);
   assert.match(workflow, /npm ci/);
   assert.match(workflow, /npx playwright install --with-deps chromium/);
   assert.match(workflow, /timeout-minutes:\s*25/);

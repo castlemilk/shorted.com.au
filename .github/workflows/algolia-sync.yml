@@ -24,7 +24,7 @@ on:
     - cron: '0 16 * * *'  # 16:00 UTC = 03:00 AEST
 
 env:
-  NODE_VERSION: "24"
+  NODE_VERSION: "26.13.1"
 
 jobs:
   sync-algolia:

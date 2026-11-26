@@ -5,7 +5,7 @@
   "type": "module",
   "moduleResolution": "Node",
   "engines": {
-    "node": "24.x"
+    "node": "26.x"
   },
   "scripts": {
     "prebuild": "npm run bump-version",
