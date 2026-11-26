@@ -198,8 +198,8 @@ type reporter struct {
 	cfg  config
 	now  func() time.Time
 
-	lastOK        atomic.Int64 // unix nanos of the last successful reconcile
-	lastHeartbeat time.Time
+	lastOK        atomic.Int64     // unix nanos of the last successful reconcile
+	nextHeartbeat time.Time        // fixed cadence; never rebased on HTTP completion
 	cloudRun      *cloudRunWatcher // nil: Kubernetes only
 
 	mu        sync.Mutex
@@ -239,14 +239,33 @@ func (r *reporter) heartbeat(ctx context.Context) {
 	if !ok || r.cfg.dryRun {
 		return
 	}
-	if !r.lastHeartbeat.IsZero() && r.now().Sub(r.lastHeartbeat) < r.cfg.heartbeatInterval {
+	at := r.now()
+	if !r.nextHeartbeat.IsZero() && at.Before(r.nextHeartbeat) {
 		return
+	}
+	due := r.nextHeartbeat
+	if due.IsZero() {
+		// Keep the immediate startup check-in, then anchor the cadence to
+		// this attempt's start rather than to its eventual HTTP response.
+		due = at
 	}
 	if err := r.send.Send(ctx, u, checkin{State: stateComplete}); err != nil {
 		log.Printf("ERROR cronjob-reporter: heartbeat: %v", err)
 		return
 	}
-	r.lastHeartbeat = r.now()
+	completedAt := r.now()
+	if r.cfg.heartbeatInterval <= 0 {
+		// Preserve the existing non-positive interval behavior: every tick.
+		r.nextHeartbeat = completedAt
+		return
+	}
+	next := due.Add(r.cfg.heartbeatInterval)
+	if !next.After(completedAt) {
+		// A delayed reconcile/send can cross several deadlines. Skip them:
+		// old heartbeats must not be replayed or burst after an outage.
+		next = next.Add((completedAt.Sub(next)/r.cfg.heartbeatInterval + 1) * r.cfg.heartbeatInterval)
+	}
+	r.nextHeartbeat = next
 }
 
 func (r *reporter) reconcile(ctx context.Context) error {
