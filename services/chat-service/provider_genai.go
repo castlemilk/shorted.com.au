@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"google.golang.org/genai"
 )
@@ -146,17 +147,27 @@ func (s *geminiSession) Send(ctx context.Context, in SendInput, choice ToolChoic
 	if len(modelParts) > 0 {
 		s.transcript = append(s.transcript, &genai.Content{Role: genai.RoleModel, Parts: modelParts})
 	}
+	// Reserve every provider ID before synthesising any IDs. A provider ID
+	// may look like our call_<n> fallback, including later in a parallel batch.
+	for _, part := range modelParts {
+		if part.FunctionCall != nil && part.FunctionCall.ID != "" {
+			s.providerIDs[part.FunctionCall.ID] = true
+		}
+	}
 	for _, part := range modelParts {
 		if part.FunctionCall == nil {
 			continue
 		}
 		fc := part.FunctionCall
 		id := fc.ID
-		if id != "" {
-			s.providerIDs[id] = true
-		} else {
-			s.seq++
-			id = fmt.Sprintf("call_%d", s.seq)
+		if id == "" {
+			for {
+				s.seq++
+				id = fmt.Sprintf("call_%d", s.seq)
+				if !s.providerIDs[id] {
+					break
+				}
+			}
 		}
 		args := fc.Args
 		if args == nil {
@@ -181,6 +192,14 @@ func (s *geminiSession) requestConfig(choice ToolChoice) *genai.GenerateContentC
 	}
 	if s.config.MaxOutputTokens > 0 {
 		cfg.MaxOutputTokens = s.config.MaxOutputTokens
+	}
+	if strings.TrimPrefix(s.model, "models/") == "gemini-3.5-flash-lite" {
+		// Explicit migration target only. Keep legacy 2.5 routing/config intact.
+		// Omit deprecated sampling and candidate count; this is a tool-calling
+		// route, so choose MEDIUM rather than the model's MINIMAL default.
+		cfg.CandidateCount = 0
+		cfg.ThinkingConfig = &genai.ThinkingConfig{ThinkingLevel: genai.ThinkingLevelMedium}
+		return cfg
 	}
 	if t := s.config.Params.Temperature; t != nil {
 		temperature := float32(*t)

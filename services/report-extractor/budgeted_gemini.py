@@ -1,9 +1,10 @@
-"""BudgetedGemini: langextract's Gemini provider with thinking off and tokens counted.
+"""BudgetedGemini: model-aware thinking configuration and counted tokens.
 
 Contract 6.1 "Thinking and tokens". gemini-2.5-flash thinks by default, and a
 thinking model spends (and bills) output tokens on reasoning before it writes a
 word. The extraction task is span-copying, not reasoning, so every per-prompt
-call sets thinking_config=ThinkingConfig(thinking_budget=0), and every
+call sets thinking_budget=0 for 2.5, or thinking_level=MINIMAL for an explicit
+3.5 Flash-Lite target. Minimal does not promise zero reasoning tokens. Every
 response's usage_metadata is summed into a TokenUsage so the run logs what it
 spent. The digest call (extract.summarize_report) sets the same config.
 
@@ -33,8 +34,15 @@ from token_usage import TokenUsage
 THINKING_BUDGET = 0
 
 
-def thinking_config() -> genai_types.ThinkingConfig:
+def uses_thinking_levels(model_id: str) -> bool:
+    """Only the reviewed direct-Google migration target, not OpenRouter IDs."""
+    return model_id.removeprefix("models/") == "gemini-3.5-flash-lite"
+
+
+def thinking_config(model_id: str = "gemini-2.5-flash") -> genai_types.ThinkingConfig:
     """The thinking configuration every extractor Gemini call carries."""
+    if uses_thinking_levels(model_id):
+        return genai_types.ThinkingConfig(thinking_level=genai_types.ThinkingLevel.MINIMAL)
     return genai_types.ThinkingConfig(thinking_budget=THINKING_BUDGET)
 
 
@@ -48,7 +56,12 @@ class BudgetedGemini(lx_gemini.GeminiLanguageModel):
 
     def _process_single_prompt(self, prompt: str, config: dict):  # type: ignore[override]
         config = dict(config)
-        config["thinking_config"] = thinking_config()
+        config["thinking_config"] = thinking_config(self.model_id)
+        if uses_thinking_levels(self.model_id):
+            # None suppresses LangExtract constructor fallbacks; its pinned
+            # provider removes these markers before handing config to the SDK.
+            for name in ("temperature", "top_p", "top_k", "candidate_count"):
+                config[name] = None
         return super()._process_single_prompt(prompt, config)
 
     def _response_to_scored_output(self, response):  # type: ignore[override]

@@ -335,6 +335,7 @@ def process(
     extract.store_extraction(
         _conn(), doc, metrics, len(text), dry_run,
         digest_result=digest, raw_text_gcs_url=gcs_url,
+        digest_model=direct.primary if direct is not None else model,
         document_meta=meta, write_document_meta=write_meta,
         count_attempt=count_attempts,
     )
@@ -402,6 +403,7 @@ def process_digestless(
     extract.store_extraction(
         _conn(), report, metrics, len(text), dry_run,
         digest_result=digest, raw_text_gcs_url=gcs_url,
+        digest_model=direct.primary if direct is not None else model,
         document_meta=extract_document_meta(text, extract.report_date_of(report)), write_document_meta=write_meta,
     )
     return f"ok_{source}"
