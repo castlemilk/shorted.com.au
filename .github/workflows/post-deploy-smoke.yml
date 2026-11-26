@@ -149,7 +149,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
-          node-version: "24"
+          node-version: "26.13.1"
 
       - name: Install frontend dependencies
         working-directory: web
@@ -157,7 +157,7 @@ jobs:
 
       - name: Install Playwright
         working-directory: web
-        run: npx playwright install --with-deps chromium
+        run: node scripts/playwright.mjs install --with-deps chromium
 
       - name: Run production release smoke
         working-directory: web

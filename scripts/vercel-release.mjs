@@ -12,8 +12,8 @@ import { delimiter, dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 
-export const CLI_VERSION = "54.10.2";
-export const NODE_VERSION = "24.22.1";
+export const CLI_VERSION = "65.8.0";
+export const NODE_VERSION = "26.13.1";
 const project = "shorted-com-au";
 const scope = "document-analyser";
 const productionHost = "shorted.com.au";

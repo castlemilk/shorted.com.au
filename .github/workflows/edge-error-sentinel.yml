@@ -40,7 +40,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: "24"
+          node-version: "26.13.1"
 
       - name: Verify the sentinel's own logic
         # Cheap, and it means a broken threshold or a broken exclusion is caught

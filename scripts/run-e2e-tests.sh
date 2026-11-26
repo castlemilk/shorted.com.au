@@ -100,7 +100,7 @@ fi
 
 # Install Playwright browsers if needed
 if [ ! -d "$HOME/.cache/ms-playwright" ]; then
-    npx playwright install chromium
+    node scripts/playwright.mjs install chromium
 fi
 
 echo -e "${GREEN}✅ Dependencies installed${NC}\n"
@@ -227,10 +227,10 @@ export MARKET_DATA_URL="http://localhost:$MARKET_DATA_PORT"
 # Run tests
 if [ "$HEADLESS" = "true" ]; then
     echo "Running tests in headless mode..."
-    npx playwright test e2e/full-stack-e2e.spec.ts
+    node scripts/playwright.mjs test e2e/full-stack-e2e.spec.ts
 else
     echo "Running tests with UI..."
-    npx playwright test e2e/full-stack-e2e.spec.ts --headed
+    node scripts/playwright.mjs test e2e/full-stack-e2e.spec.ts --headed
 fi
 
 TEST_EXIT_CODE=$?

@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url';
 
-export const requiredBuildNode = '24.22.1';
+export const requiredBuildNode = '26.13.1';
 export function assertBuildNode(version) {
   if (version !== `v${requiredBuildNode}`) {
     throw new Error(`Use Node ${requiredBuildNode} for this build; found ${version}.`);

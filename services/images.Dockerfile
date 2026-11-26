@@ -81,14 +81,12 @@ RUN --mount=type=cache,id=shorted-gomod,target=/go/pkg/mod \
 # Shared runtime layers for the two Playwright images. Built once, reused by
 # both targets; they do not depend on the Go sources so they cache for months.
 # ---------------------------------------------------------------------------
-FROM debian:bookworm-slim AS playwright-base
+FROM node:22.23.5-bookworm-slim AS legacy-playwright-node
+
+FROM node:26.13.1-bookworm-slim AS playwright-base
 RUN apt-get update && apt-get install -y \
     curl \
     ca-certificates \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/*
-RUN apt-get update && apt-get install -y \
     fonts-liberation \
     libasound2 \
     libatk-bridge2.0-0 \
@@ -176,8 +174,11 @@ CMD ["./market-data-sync"]
 
 # asx-discovery — legacy ASX discovery crawler (superseded by `shorted discovery`).
 FROM playwright-base AS asx-discovery
-RUN PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx --yes playwright@1.57.0 install chromium \
-    && PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx --yes playwright@1.57.0 install-deps chromium || true \
+# Use Node 22 for the older browser installer. The runtime image uses Node 26.
+RUN --mount=type=bind,from=legacy-playwright-node,source=/usr/local/bin/node,target=/tmp/playwright-node/node \
+    export PATH="/tmp/playwright-node:$PATH" \
+    && npx --yes playwright@1.57.0 install chromium \
+    && { npx --yes playwright@1.57.0 install-deps chromium || true; } \
     && rm -rf /root/.npm /root/.cache
 COPY --from=builder /out/asx-discovery .
 CMD ["./asx-discovery"]

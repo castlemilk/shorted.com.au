@@ -4,12 +4,11 @@ name: Storybook Tests
 #  - interaction tests (Storybook play functions via the Vitest browser runner)
 #  - visual regression (Playwright screenshots vs committed PNG baselines)
 #
-# The visual job MUST stay on Debian Bookworm because pixel output depends on
-# the OS freetype/fontconfig stack. Use node:22-bookworm-slim for now: with
-# @playwright/test 1.52.0, node:24-bookworm-slim can hang before test discovery
-# and time out with no Playwright output. If you intentionally change widget
-# appearance, regenerate baselines in that same image: see
-# web/tests/visual/README.md.
+# Debian Bookworm keeps the same FreeType and fontconfig stack as the committed
+# visual baselines. The browser installer uses Node 22 for Playwright 1.52.0,
+# which stalls while unpacking Chromium on Node 26 Linux. The test runner
+# uses tsx on Node 26 for test discovery. See
+# web/tests/visual/README.md for intentional baseline updates.
 
 on:
   pull_request:
@@ -50,7 +49,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: "24"
+          node-version: "26.13.1"
 
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
@@ -59,7 +58,7 @@ jobs:
         run: npm run test:session-cookies
 
       - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+        run: node scripts/playwright.mjs install --with-deps chromium
 
       - name: Run Storybook interaction tests
         run: npm run test:storybook
@@ -68,12 +67,9 @@ jobs:
     name: Visual regression
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 25
-    # Render on the same Debian release the committed baselines were generated
-    # on, so screenshots are byte-comparable (font anti-aliasing is OS-specific).
-    # Node 22 avoids the Node 24 + Playwright 1.52 startup hang in this slim
-    # container while preserving the Bookworm rendering stack.
+    # Keep the Bookworm rendering stack used to generate the committed baselines.
     container:
-      image: node:22-bookworm-slim
+      image: node:26.13.1-bookworm-slim
     defaults:
       run:
         working-directory: web
@@ -84,7 +80,7 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+        run: node scripts/playwright.mjs install --with-deps chromium
 
       - name: Run visual regression
         run: npm run test:visual

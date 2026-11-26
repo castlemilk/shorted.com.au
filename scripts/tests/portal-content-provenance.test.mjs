@@ -270,7 +270,7 @@ test("workflow runs the provenance tests and gate for every protected path", () 
   }
   assert.match(source, /actions\/checkout@v5/);
   assert.match(source, /actions\/setup-node@v5/);
-  assert.match(source, /node-version:\s*["']?24\b/);
+  assert.match(source, /node-version:\s*["']?26\.13\.1\b/);
   assert.match(
     source,
     /node --test scripts\/tests\/portal-content-provenance\.test\.mjs scripts\/tests\/housing-deploy-hygiene\.test\.mjs/,

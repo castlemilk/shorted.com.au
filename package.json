@@ -35,7 +35,7 @@
     "yaml": "^2.9.0"
   },
   "engines": {
-    "node": "24.x"
+    "node": "26.x"
   },
   "dependencies": {
     "framer-motion": "^12.23.24"

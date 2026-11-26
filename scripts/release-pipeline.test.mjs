@@ -53,7 +53,7 @@ test("both prebuilt release paths generate and verify the deployment identity be
   const production = workflow.slice(workflow.indexOf("- name: Build and upload production deployment"));
   const local = read("scripts/release-web.sh");
   for (const [name, script, build, upload] of [
-    ["CI", production, "vercel@54.10.2 vercel build", "vercel deploy --prebuilt"],
+    ["CI", production, "vercel@65.8.0 vercel build", "vercel deploy --prebuilt"],
     ["local", local, "vercel build", "vercel deploy"],
   ]) {
     const generate = script.indexOf("scripts/vercel-deployment-identity.mjs\" new");
@@ -84,7 +84,7 @@ test("bundle CI remains blocking without a browser or Lighthouse server", () => 
   assert.match(workflow, /set -(?:euo|o) pipefail/);
   assert.match(workflow, /npx next build 2>&1 \| tee perf-results\/build\.log/);
   assert.match(workflow, /node scripts\/bundle-budget\.mjs --build-log perf-results\/build\.log --compare \.\.\/docs\/perf\/bundle-baseline\.json/);
-  assert.doesNotMatch(workflow, /continue-on-error|lighthouse-bench|playwright install|next start|Start production server/);
+  assert.doesNotMatch(workflow, /continue-on-error|lighthouse-bench|playwright install|playwright\.mjs install|next start|Start production server/);
   assert.match(workflow, /path: web\/perf-results\/bundle-\*\.json/);
   assert.ok(workflow.indexOf("Production build") < workflow.indexOf("Bundle budget vs baseline"));
 });
@@ -99,9 +99,9 @@ test("post-deploy smoke uses trusted-test headers and full production release sm
   assert.match(workflow, /\[\s*"\$status"\s*-ge 400\s*\]/);
   assert.doesNotMatch(workflow, /\[\s*"\$status"\s*-ge 500\s*\]/);
   assert.match(workflow, /actions\/checkout@v5/);
-  assert.match(workflow, /node-version:\s*"24"/);
+  assert.match(workflow, /node-version:\s*"26\.13\.1"/);
   assert.match(workflow, /npm ci/);
-  assert.match(workflow, /npx playwright install --with-deps chromium/);
+  assert.match(workflow, /node scripts\/playwright\.mjs install --with-deps chromium/);
   assert.match(workflow, /timeout-minutes:\s*25/);
   assert.match(workflow, /timeout-minutes:\s*12/);
   assert.match(workflow, /BASE_URL:\s*https:\/\/shorted\.com\.au/);
@@ -132,7 +132,7 @@ test("production web deploy preserves preflights, artifact promotion and test ga
   assert.match(prodJob, /NPM_CONFIG_FETCH_RETRIES:\s*"5"/);
   // Preview smoke remains excluded, but the promoted release must be tested.
   const beforePromotion = prodJob.slice(0, prodJob.indexOf("Promote Vercel deployment to production"));
-  assert.doesNotMatch(beforePromotion, /Smoke release candidate preview|release-smoke-ci\.mjs|playwright install/);
+  assert.doesNotMatch(beforePromotion, /Smoke release candidate preview|release-smoke-ci\.mjs|playwright install|playwright\.mjs install/);
   assert.doesNotMatch(prodJob, /Smoke release candidate preview/);
   const smokeIndex = prodJob.indexOf("Verify promoted production release");
   const summaryIndex = prodJob.indexOf("Production Deployment Summary");

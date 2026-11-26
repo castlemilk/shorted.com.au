@@ -731,7 +731,7 @@ test("the build pulls the project after npm ci and before vercel build", () => {
   const build = step("Build and upload production deployment");
   const install = build.indexOf("npm --prefix web ci");
   const pull = build.indexOf("vercel pull --yes --environment production");
-  const compile = build.indexOf("vercel@54.10.2 vercel build");
+  const compile = build.indexOf("vercel@65.8.0 vercel build");
   assert.ok(install > -1 && install < pull && pull < compile);
 });
 

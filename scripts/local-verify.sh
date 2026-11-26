@@ -65,7 +65,7 @@ cd "$REPO_ROOT"
 # each step in a LOGIN shell (bash -lc), which re-reads the profile and rebuilds
 # PATH. Between them, Homebrew's node won every step even after nvm had selected
 # the pinned version: on 2026-09-11 the gate was building on Node 26 while
-# .nvmrc says 24, and Node 26 removed buffer.SlowBuffer — so the frontend build
+# .nvmrc still pinned 24. Node 26 removed buffer.SlowBuffer — so the frontend build
 # died in buffer-equal-constant-time (jsonwebtoken's dependency) with
 # "Cannot read properties of undefined (reading 'prototype')". Nothing said the
 # Node version was wrong; it looked like a broken package.

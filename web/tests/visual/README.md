@@ -35,15 +35,18 @@ macOS renders fonts with different anti-aliasing than CI's Bookworm container,
 so baselines generated locally on a Mac **will diff** on CI. Always
 (re)generate baselines inside the same Debian Bookworm image used by the
 visual-regression workflow.
-The workflow currently uses Node 22 on Bookworm because Node 24 with
-`@playwright/test` 1.52.0 can hang before test discovery in the slim container.
+The workflow builds Storybook and runs visual tests on Node.js 26.13.1.
+The Playwright launcher uses the project's tsx loader for test discovery.
+On Linux, the installer runs the locked Playwright 1.52.0 CLI with Node.js
+22.23.5 because extraction stalls on Node.js 26. This keeps Chromium build 1169
+and the Bookworm rendering stack used by the committed baselines.
 
 Regenerate (run from `web/`):
 
 ```bash
 docker run --rm -v "$PWD":/work -w /work \
-  node:22-bookworm-slim \
-  bash -lc "npm ci --legacy-peer-deps && npx playwright install --with-deps chromium && npm run test:visual:update"
+  node:26.13.1-bookworm-slim \
+  bash -lc "npm ci --legacy-peer-deps && node scripts/playwright.mjs install --with-deps chromium && npm run test:visual:update"
 ```
 
 This builds Storybook and writes one PNG per non-tagged story into
@@ -54,8 +57,8 @@ To verify the suite is green against its own baselines, re-run **without**
 
 ```bash
 docker run --rm -v "$PWD":/work -w /work \
-  node:22-bookworm-slim \
-  bash -lc "npm ci --legacy-peer-deps && npx playwright install --with-deps chromium && npm run test:visual"
+  node:26.13.1-bookworm-slim \
+  bash -lc "npm ci --legacy-peer-deps && node scripts/playwright.mjs install --with-deps chromium && npm run test:visual"
 ```
 
 ## The `no-visual` tag convention

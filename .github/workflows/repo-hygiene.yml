@@ -99,7 +99,7 @@ jobs:
             content/news
       - uses: actions/setup-node@v5
         with:
-          node-version: "24"
+          node-version: "26.13.1"
       - name: Install newsroom dependencies
         working-directory: scripts/take-writer
         run: npm ci --no-audit --no-fund
@@ -141,7 +141,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: "24"
+          node-version: "26.13.1"
 
       # The release guard tests import the root test dependency (yaml), which
       # only the root lockfile provides. Install scripts stay off.
@@ -159,7 +159,7 @@ jobs:
 
       - name: Pinned Vercel CLI contracts against a loopback fake API
         timeout-minutes: 2
-        run: npm exec --yes --ignore-scripts --registry=https://registry.npmjs.org --package=vercel@54.10.2 -- node scripts/contract-tests/vercel-cli.mjs
+        run: npm exec --yes --ignore-scripts --registry=https://registry.npmjs.org --package=vercel@65.8.0 -- node scripts/contract-tests/vercel-cli.mjs
 
       # These assert properties of migrations that prod REPLAYS on every deploy
       # from a hardcoded allowlist — most importantly that 000095 stays last, so
@@ -305,7 +305,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: "24"
+          node-version: "26.13.1"
 
       # v6.5.0, not v6: see go-quality.yml.
       - uses: actions/setup-go@v6.5.0

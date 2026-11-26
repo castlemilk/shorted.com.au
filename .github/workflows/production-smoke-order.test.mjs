@@ -23,7 +23,7 @@ test('browser installation precedes mandatory release smoke', () => {
   const install = job.indexOf('- name: Install production smoke browser');
   const smoke = job.indexOf('- name: Verify promoted production release');
   assert.ok(install >= 0 && smoke > install);
-  assert.match(job.slice(install, smoke), /npx playwright install --with-deps chromium/);
+  assert.match(job.slice(install, smoke), /node scripts\/playwright\.mjs install --with-deps chromium/);
 });
 
 test('periodic health checks do not race a push deployment with a fixed sleep', () => {
